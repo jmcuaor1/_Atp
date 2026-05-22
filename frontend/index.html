@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ATP Tennis Predictor · EAFIT IA 2026</title>
+  <style>
+    :root {
+      --blue:    #003D79;
+      --blue-light: #0057a8;
+      --green:   #009650;
+      --gray:    #5a5a5a;
+      --bg:      #f4f6fa;
+      --card:    #ffffff;
+      --border:  #dde3ec;
+      --text:    #1a1a2e;
+      --radius:  12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, var(--blue) 0%, #005ba8 100%);
+      color: #fff;
+      padding: 1.4rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,.25);
+    }
+    header .logo { font-size: 2rem; }
+    header h1 { font-size: 1.35rem; font-weight: 700; line-height: 1.2; }
+    header p  { font-size: .8rem; opacity: .75; margin-top: .15rem; }
+
+    /* ── Main layout ── */
+    main {
+      max-width: 860px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.6rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    }
+    .card-title {
+      font-size: .75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--blue);
+      margin-bottom: 1.2rem;
+    }
+
+    /* ── Player grid ── */
+    .player-grid {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: .75rem;
+      align-items: end;
+    }
+    .vs-badge {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--blue);
+      color: #fff;
+      font-weight: 700;
+      font-size: .8rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 2px;
+    }
+
+    label {
+      display: block;
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--gray);
+      margin-bottom: .35rem;
+    }
+
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      padding: .6rem .85rem;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: .92rem;
+      color: var(--text);
+      transition: border-color .2s;
+      outline: none;
+    }
+    input[type="text"]:focus, input[type="number"]:focus {
+      border-color: var(--blue-light);
+      box-shadow: 0 0 0 3px rgba(0,87,168,.12);
+    }
+
+    /* ── Surface pills ── */
+    .surface-row {
+      display: flex;
+      gap: .5rem;
+      flex-wrap: wrap;
+      margin-top: .35rem;
+    }
+    .surface-btn {
+      padding: .45rem 1.1rem;
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      background: #fff;
+      cursor: pointer;
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--gray);
+      transition: all .18s;
+    }
+    .surface-btn:hover { border-color: var(--blue-light); color: var(--blue-light); }
+    .surface-btn.active {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: #fff;
+    }
+    .surface-btn.Clay.active  { background: #c0541a; border-color: #c0541a; }
+    .surface-btn.Grass.active { background: var(--green); border-color: var(--green); }
+    .surface-btn.Carpet.active{ background: #6b4fa0; border-color: #6b4fa0; }
+
+    /* ── Optional rank row ── */
+    details { margin-top: .9rem; }
+    details summary {
+      cursor: pointer;
+      font-size: .8rem;
+      color: var(--blue-light);
+      font-weight: 600;
+      list-style: none;
+      user-select: none;
+    }
+    details summary::before { content: '▸ '; }
+    details[open] summary::before { content: '▾ '; }
+    .rank-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .75rem;
+      margin-top: .75rem;
+    }
+
+    /* ── Predict button ── */
+    .btn-predict {
+      width: 100%;
+      margin-top: 1.2rem;
+      padding: .85rem;
+      background: linear-gradient(135deg, var(--blue) 0%, var(--blue-light) 100%);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      letter-spacing: .04em;
+      transition: opacity .2s, transform .1s;
+    }
+    .btn-predict:hover   { opacity: .9; }
+    .btn-predict:active  { transform: scale(.99); }
+    .btn-predict:disabled{ opacity: .6; cursor: not-allowed; }
+
+    /* ── Loading ── */
+    .spinner {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2.5px solid rgba(255,255,255,.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      vertical-align: middle;
+      margin-right: .5rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Result card ── */
+    #result { display: none; }
+
+    .winner-banner {
+      text-align: center;
+      padding: 1.2rem;
+      background: linear-gradient(135deg, #003D79 0%, #0057a8 100%);
+      border-radius: 10px;
+      color: #fff;
+      margin-bottom: 1.2rem;
+    }
+    .winner-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; opacity: .75; }
+    .winner-name  { font-size: 1.7rem; font-weight: 800; margin: .2rem 0; }
+    .winner-sub   { font-size: .85rem; opacity: .85; }
+
+    /* ── Probability bar ── */
+    .prob-section { margin-bottom: 1.2rem; }
+    .prob-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: .8rem;
+      font-weight: 600;
+      margin-bottom: .3rem;
+    }
+    .prob-bar-track {
+      height: 22px;
+      border-radius: 11px;
+      background: #eef0f5;
+      overflow: hidden;
+      position: relative;
+    }
+    .prob-bar-fill {
+      height: 100%;
+      border-radius: 11px;
+      background: linear-gradient(90deg, var(--blue) 0%, var(--blue-light) 100%);
+      transition: width .6s cubic-bezier(.4,0,.2,1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .72rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    .prob-bar-fill.clay   { background: linear-gradient(90deg,#a03a10,#c0541a); }
+    .prob-bar-fill.grass  { background: linear-gradient(90deg,#006b30,#009650); }
+    .prob-bar-fill.carpet { background: linear-gradient(90deg,#4a2d80,#6b4fa0); }
+
+    /* ── Stats grid ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: .65rem;
+      margin-bottom: 1.2rem;
+    }
+    .stat-chip {
+      background: #f0f4fb;
+      border-radius: 8px;
+      padding: .65rem .8rem;
+      text-align: center;
+    }
+    .stat-chip .val { font-size: 1.15rem; font-weight: 800; color: var(--blue); }
+    .stat-chip .lbl { font-size: .7rem; color: var(--gray); margin-top: .1rem; }
+
+    /* ── LLM explanation ── */
+    .explanation-box {
+      border-left: 3px solid var(--green);
+      background: #f0faf5;
+      border-radius: 0 8px 8px 0;
+      padding: .9rem 1rem;
+      font-size: .88rem;
+      line-height: 1.6;
+      color: #1a3a2a;
+    }
+    .explanation-label {
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--green);
+      margin-bottom: .4rem;
+    }
+
+    /* ── Model badge ── */
+    .model-badge {
+      display: inline-block;
+      font-size: .68rem;
+      padding: .15rem .55rem;
+      border-radius: 10px;
+      font-weight: 600;
+      margin-top: .6rem;
+    }
+    .model-badge.xgboost  { background: #e8f5e9; color: #2e7d32; }
+    .model-badge.heuristic{ background: #fff3e0; color: #e65100; }
+
+    /* ── Error ── */
+    .error-box {
+      background: #fff0f0;
+      border: 1px solid #f5c0c0;
+      border-radius: 8px;
+      padding: .8rem 1rem;
+      color: #c0392b;
+      font-size: .88rem;
+    }
+
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: .75rem;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🎾</div>
+  <div>
+    <h1>ATP Tennis Predictor</h1>
+    <p>Predicción de partidos con datos históricos + LLM · EAFIT IA 2026</p>
+  </div>
+</header>
+
+<main>
+
+  <!-- Form card -->
+  <div class="card">
+    <div class="card-title">Configurar partido</div>
+
+    <div class="player-grid">
+      <div>
+        <label for="p1-input">Jugador 1</label>
+        <input type="text" id="p1-input" list="players-list" placeholder="Ej: Novak Djokovic" autocomplete="off" />
+      </div>
+      <div class="vs-badge">VS</div>
+      <div>
+        <label for="p2-input">Jugador 2</label>
+        <input type="text" id="p2-input" list="players-list" placeholder="Ej: Carlos Alcaraz" autocomplete="off" />
+      </div>
+    </div>
+    <datalist id="players-list"></datalist>
+
+    <div style="margin-top:1rem">
+      <label>Superficie</label>
+      <div class="surface-row" id="surface-row">
+        <button class="surface-btn Hard active"   data-surface="Hard">🏟 Hard</button>
+        <button class="surface-btn Clay"          data-surface="Clay">🟤 Clay</button>
+        <button class="surface-btn Grass"         data-surface="Grass">🌿 Grass</button>
+        <button class="surface-btn Carpet"        data-surface="Carpet">🟣 Carpet</button>
+      </div>
+    </div>
+
+    <details>
+      <summary>Ingresar ranking manualmente (opcional)</summary>
+      <div class="rank-grid">
+        <div>
+          <label for="rank1">Ranking Jugador 1</label>
+          <input type="number" id="rank1" min="1" max="2000" placeholder="Ej: 1" />
+        </div>
+        <div>
+          <label for="rank2">Ranking Jugador 2</label>
+          <input type="number" id="rank2" min="1" max="2000" placeholder="Ej: 5" />
+        </div>
+      </div>
+    </details>
+
+    <button class="btn-predict" id="predict-btn" onclick="runPrediction()">
+      Predecir resultado
+    </button>
+  </div>
+
+  <!-- Result card -->
+  <div class="card" id="result">
+    <div class="card-title">Resultado de la predicción</div>
+    <div id="result-content"></div>
+  </div>
+
+</main>
+
+<footer>Universidad EAFIT · Inteligencia Artificial 2026-1 · Datos: ATP Tour 1968–2024</footer>
+
+<script>
+  const API = '';   // same origin
+  let selectedSurface = 'Hard';
+
+  // ── Surface buttons ──
+  document.getElementById('surface-row').addEventListener('click', e => {
+    const btn = e.target.closest('.surface-btn');
+    if (!btn) return;
+    document.querySelectorAll('.surface-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedSurface = btn.dataset.surface;
+  });
+
+  // ── Load players into datalist ──
+  async function loadPlayers() {
+    try {
+      const res = await fetch(`${API}/api/players`);
+      if (!res.ok) return;
+      const players = await res.json();
+      const dl = document.getElementById('players-list');
+      dl.innerHTML = players.map(p => `<option value="${p}">`).join('');
+    } catch (_) {}
+  }
+
+  // ── Main prediction call ──
+  async function runPrediction() {
+    const p1 = document.getElementById('p1-input').value.trim();
+    const p2 = document.getElementById('p2-input').value.trim();
+    const r1 = document.getElementById('rank1').value;
+    const r2 = document.getElementById('rank2').value;
+
+    if (!p1 || !p2) {
+      alert('Por favor ingresa los nombres de ambos jugadores.');
+      return;
+    }
+    if (p1.toLowerCase() === p2.toLowerCase()) {
+      alert('Los jugadores deben ser diferentes.');
+      return;
+    }
+
+    const btn = document.getElementById('predict-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Analizando...';
+
+    const resultCard = document.getElementById('result');
+    const resultContent = document.getElementById('result-content');
+    resultCard.style.display = 'none';
+
+    try {
+      const body = {
+        player1: p1,
+        player2: p2,
+        surface: selectedSurface,
+        explain: true,
+      };
+      if (r1) body.player1_rank = parseInt(r1);
+      if (r2) body.player2_rank = parseInt(r2);
+
+      const res = await fetch(`${API}/api/predict`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Error en el servidor');
+      }
+
+      const data = await res.json();
+      renderResult(p1, p2, data);
+      resultCard.style.display = 'block';
+      resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err) {
+      resultContent.innerHTML = `<div class="error-box">⚠️ ${err.message}</div>`;
+      resultCard.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Predecir resultado';
+    }
+  }
+
+  function renderResult(p1, p2, data) {
+    const f = data.features;
+    const surface = selectedSurface.toLowerCase();
+    const probPct = Math.round(data.prob_p1 * 100);
+    const fillClass = surface === 'clay' ? 'clay' : surface === 'grass' ? 'grass' : surface === 'carpet' ? 'carpet' : '';
+
+    const h2hTotal = f.h2h_p1 + f.h2h_p2;
+    const h2hStr = h2hTotal > 0
+      ? `${f.h2h_p1}–${f.h2h_p2}`
+      : 'Sin historial';
+
+    const modelBadge = data.model === 'xgboost'
+      ? '<span class="model-badge xgboost">XGBoost</span>'
+      : '<span class="model-badge heuristic">Heurístico (rango + tasa + H2H)</span>';
+
+    const explanation = data.explanation
+      ? `<div class="explanation-label">🤖 Análisis del modelo de lenguaje (Groq)</div>
+         <div class="explanation-box">${escHtml(data.explanation)}</div>`
+      : '';
+
+    document.getElementById('result-content').innerHTML = `
+      <div class="winner-banner">
+        <div class="winner-label">Ganador predicho</div>
+        <div class="winner-name">${escHtml(data.winner)}</div>
+        <div class="winner-sub">derrota a ${escHtml(data.loser)} · probabilidad ${Math.round(data.probability * 100)}%</div>
+      </div>
+
+      <div class="prob-section">
+        <div class="prob-labels">
+          <span>${escHtml(p1)} <strong>${Math.round(data.prob_p1 * 100)}%</strong></span>
+          <span><strong>${Math.round(data.prob_p2 * 100)}%</strong> ${escHtml(p2)}</span>
+        </div>
+        <div class="prob-bar-track">
+          <div class="prob-bar-fill ${fillClass}" style="width:${probPct}%">
+            ${probPct > 20 ? probPct + '%' : ''}
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-chip">
+          <div class="val">#${Math.round(f.rank_p1)}</div>
+          <div class="lbl">Ranking ${escHtml(p1)}</div>
+        </div>
+        <div class="stat-chip">
+          <div class="val">#${Math.round(f.rank_p2)}</div>
+          <div class="lbl">Ranking ${escHtml(p2)}</div>
+        </div>
+        <div class="stat-chip">
+          <div class="val">${Math.round(f.win_rate_p1 * 100)}%</div>
+          <div class="lbl">${escHtml(p1)} en ${selectedSurface}</div>
+        </div>
+        <div class="stat-chip">
+          <div class="val">${Math.round(f.win_rate_p2 * 100)}%</div>
+          <div class="lbl">${escHtml(p2)} en ${selectedSurface}</div>
+        </div>
+        <div class="stat-chip">
+          <div class="val">${h2hStr}</div>
+          <div class="lbl">H2H (${escHtml(p1)} vs ${escHtml(p2)})</div>
+        </div>
+        <div class="stat-chip">
+          <div class="val">${selectedSurface}</div>
+          <div class="lbl">Superficie</div>
+        </div>
+      </div>
+
+      ${explanation}
+      ${modelBadge}
+    `;
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // Allow Enter key to trigger prediction
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !document.getElementById('predict-btn').disabled) {
+      runPrediction();
+    }
+  });
+
+  loadPlayers();
+</script>
+</body>
+</html>
