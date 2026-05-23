@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Python
 __pycache__/
 *.py[cod]
@@ -16,3 +17,17 @@ node_modules/
 .next/
 out/
 build/
+=======
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+models/
+>>>>>>> daab2e1cdb2d49c4091b6dfcafe4a8caa0d5a9c3
