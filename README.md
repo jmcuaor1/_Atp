@@ -118,8 +118,4 @@ pytest tests/ -v
 
 ## Datos
 
-Los CSV provienen del repositorio [tennis_atp](https://github.com/JeffSackmann/tennis_atp) (datos históricos ATP). No uses el scraper antiguo (`src/scraper.py`); está deprecado.
-
-## Licencia
-
-Uso educativo / personal. Los datos ATP pertenecen a sus respectivos titulares; revisa las condiciones del repositorio de datos antes de un uso comercial.
+Los CSV provienen del repositorio [tennis_atp](https://github.com/JeffSackmann/tennis_atp) (datos históricos ATP).
