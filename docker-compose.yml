@@ -1,0 +1,61 @@
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      LOG_LEVEL: INFO
+    volumes:
+      - ./backend/models:/app/models:ro
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Perfil opcional: descarga CSV oficiales ATP
+  download-data:
+    profiles: ["setup"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - ./backend/data:/app/data
+    command: python scripts/download_atp_data.py --start-year 2015 --end-year 2024
+    restart: "no"
+
+  # Perfil opcional: entrena modelo (requiere CSV en backend/data/raw)
+  train:
+    profiles: ["setup"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - ./backend/data:/app/data
+      - ./backend/models:/app/models
+    command: python src/model.py
+    restart: "no"

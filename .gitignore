@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+# Datos y modelos (generados localmente)
+backend/data/raw/*.csv
+backend/models/*.pkl
+!backend/data/raw/.gitkeep
+!backend/models/.gitkeep
+
+# Node (Frontend)
+node_modules/
+.next/
+out/
+build/

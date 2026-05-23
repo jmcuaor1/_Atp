@@ -1,0 +1,1 @@
+"""TennisAI FastAPI application package."""
