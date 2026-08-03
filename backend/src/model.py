@@ -18,12 +18,29 @@ if PARENT_DIR not in sys.path:
 if CURRENT_DIR not in sys.path:
     sys.path.append(CURRENT_DIR)
 
-from features import prepare_features_for_training
+from features import prepare_features_for_training, symmetrize_dataset
 
-def train_tennis_model(df):
+def train_tennis_model(match_df):
     """
     Entrena un modelo XGBoost para predecir el ganador de un partido.
+
+    Recibe el DataFrame a nivel de partido (1 fila por partido, sin
+    symmetrizar). El split cronológico se hace ANTES de symmetrizar y cada
+    mitad se symmetriza por separado: si se symmetriza primero y se separa
+    después, el "gemelo" de un partido de test (mismo partido con p1/p2
+    invertidos) puede terminar en el set de entrenamiento, filtrando la
+    respuesta exacta hacia el modelo (esto causaba un accuracy ~100%
+    ficticio antes de este fix).
     """
+    # 0. Split cronológico sobre partidos únicos, ANTES de symmetrizar
+    match_df = match_df.sort_values('tourney_date').reset_index(drop=True)
+    split_idx = int(len(match_df) * 0.8)
+    match_train = match_df.iloc[:split_idx]
+    match_test = match_df.iloc[split_idx:]
+
+    train_df = symmetrize_dataset(match_train)
+    test_df = symmetrize_dataset(match_test)
+
     # 1. Definir columnas a eliminar (Data Leakage)
     # NO podemos usar estadísticas que se generan DURANTE el partido (aces, break points, etc.)
     # para predecir el resultado, porque no las conocemos antes de empezar.
@@ -42,24 +59,23 @@ def train_tennis_model(df):
         'p1_ioc', 'p2_ioc', 'p1_hand', 'p2_hand', 'surface', 'best_of', 'tourney_level' # Add best_of and tourney_level to meta_cols
     ]
 
-    drop_cols = [c for c in leakage_cols + meta_cols if c in df.columns]
+    drop_cols = [c for c in leakage_cols + meta_cols if c in train_df.columns]
 
-    # 2. Separar características (X) y objetivo (y)
+    # 2. Separar características (X) y objetivo (y) en train y test por separado
     # Solo nos quedamos con variables numéricas (rankings, edad, altura, etc.)
-    X = df.drop(columns=['target'] + drop_cols)
-    # Ensure all columns are numeric and handle NaNs
-    X = X.apply(pd.to_numeric, errors='coerce').fillna(-1) # Convert all to numeric, then fill NaNs
-    y = df['target']
+    X_train = train_df.drop(columns=['target'] + drop_cols)
+    X_train = X_train.apply(pd.to_numeric, errors='coerce').fillna(-1)
+    y_train = train_df['target']
 
-    print(f"Entrenando con columnas: {list(X.columns)}")
+    X_test = test_df.drop(columns=['target'] + drop_cols)
+    X_test = X_test.apply(pd.to_numeric, errors='coerce').fillna(-1)
+    X_test = X_test.reindex(columns=X_train.columns, fill_value=-1)
+    y_test = test_df['target']
 
-    # 3. Split cronológico (más realista para deportes)
-    # Assuming df is already sorted by tourney_date from prepare_features_for_training
-    split_idx = int(len(df) * 0.8)
-    X_train, X_test = X.iloc[:split_idx], X.iloc[split_idx:]
-    y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
-
-    feature_names = list(X.columns)
+    feature_names = list(X_train.columns)
+    print(f"Entrenando con columnas: {feature_names}")
+    print(f"Train: {len(X_train)} filas ({match_train['tourney_date'].min()} a {match_train['tourney_date'].max()})")
+    print(f"Test:  {len(X_test)} filas ({match_test['tourney_date'].min()} a {match_test['tourney_date'].max()})")
 
     # 4. Modelo con Calibración (Vital para apuestas/probabilidades reales)
     base_model = xgb.XGBClassifier(
@@ -88,6 +104,42 @@ def train_tennis_model(df):
     print("\nReporte Detallado:")
     print(classification_report(y_test, y_pred))
 
+    # 7. Curva de calibración (vital: un Brier bajo no garantiza que p=0.70
+    # signifique 70% real, hay que verlo)
+    calibration_data = None
+    try:
+        from sklearn.calibration import calibration_curve
+        prob_true, prob_pred = calibration_curve(y_test, y_proba, n_bins=10, strategy="quantile")
+        calibration_data = {"prob_true": prob_true.tolist(), "prob_pred": prob_pred.tolist()}
+        print("\nCalibración (prob. predicha -> frecuencia real):")
+        for pt, pp in zip(prob_pred, prob_true):
+            print(f"  {pp:.3f} predicho -> {pt:.3f} real")
+
+        try:
+            import matplotlib
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+
+            fig, ax = plt.subplots(figsize=(5, 5))
+            ax.plot(prob_pred, prob_true, marker="o", label="Modelo")
+            ax.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Calibración perfecta")
+            ax.set_xlabel("Probabilidad predicha")
+            ax.set_ylabel("Frecuencia real observada")
+            ax.set_title("Curva de calibración - test set")
+            ax.legend()
+            fig.tight_layout()
+
+            plots_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "processed")
+            os.makedirs(plots_dir, exist_ok=True)
+            calibration_plot_path = os.path.join(plots_dir, "calibration_curve.png")
+            fig.savefig(calibration_plot_path)
+            plt.close(fig)
+            print(f"\nCurva de calibración guardada en: {calibration_plot_path}")
+        except ImportError:
+            print("\n(matplotlib no disponible: se omite el gráfico, se guardan los datos igual)")
+    except Exception as e:
+        print(f"\nNo se pudo calcular la curva de calibración: {e}")
+
     metrics = {
         "accuracy": float(accuracy_score(y_test, y_pred)),
         "brier_score": float(brier_score_loss(y_test, y_proba)),
@@ -95,6 +147,7 @@ def train_tennis_model(df):
         "test_samples": int(len(X_test)),
         "feature_count": len(feature_names),
         "trained_at": datetime.now(timezone.utc).isoformat(),
+        "calibration": calibration_data,
     }
 
     return model, feature_names, metrics
@@ -106,18 +159,27 @@ if __name__ == "__main__":
     RAW_DATA_PATH = os.path.join(BACKEND_DIR, "data", "raw")
 
     # Cargar múltiples años si existen
-    csv_files = sorted(glob.glob(os.path.join(RAW_DATA_PATH, "atp_matches_[0-9]*.csv")))
+    # Acotamos el rango a partir de MIN_YEAR: antes de mediados de los 80s el
+    # ranking ATP es poco confiable o inexistente (mezclar esas eras con el
+    # tenis actual añade ruido, no señal, para predecir partidos de hoy).
+    MIN_YEAR = 2010
+    all_csv_files = sorted(glob.glob(os.path.join(RAW_DATA_PATH, "atp_matches_[0-9]*.csv")))
+    csv_files = [
+        f for f in all_csv_files
+        if int(os.path.basename(f).replace("atp_matches_", "").replace(".csv", "")) >= MIN_YEAR
+    ]
 
     if csv_files:
         print(f"Cargando {len(csv_files)} archivos de datos...")
         # Load all CSVs and concatenate them
         raw_data = pd.concat([pd.read_csv(f) for f in csv_files])
 
-        # Transformar datos usando nuestro archivo de features
-        processed_df, player_profiles = prepare_features_for_training(raw_data)
+        # Transformar datos usando nuestro archivo de features (1 fila por
+        # partido, sin symmetrizar todavía; ver train_tennis_model)
+        match_df, player_profiles = prepare_features_for_training(raw_data)
 
         # Entrenar
-        trained_model, feature_names, metrics = train_tennis_model(processed_df)
+        trained_model, feature_names, metrics = train_tennis_model(match_df)
 
         # Guardar el modelo en un archivo .pkl
         model_dir = os.path.join(BACKEND_DIR, "models")
@@ -125,6 +187,10 @@ if __name__ == "__main__":
         model_path = os.path.join(model_dir, "tennis_model.pkl")
         metrics["csv_files"] = [os.path.basename(f) for f in csv_files]
         metrics["players_count"] = len(player_profiles)
+        metrics["date_range"] = [
+            str(match_df["tourney_date"].min()),
+            str(match_df["tourney_date"].max()),
+        ]
         # Guardamos un diccionario con metadatos útiles
         model_data = {
             'model': trained_model,

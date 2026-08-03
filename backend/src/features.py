@@ -120,8 +120,12 @@ def symmetrize_dataset(df):
     Crea dos versiones de cada partido para eliminar el sesgo del ganador.
     """
     # Columnas que pertenecen al jugador 1 (ganador original) y jugador 2 (perdedor original)
-    w_cols = [c for c in df.columns if any(pre in c for pre in ['winner_', 'w_', 'p1_'])]
-    l_cols = [c for c in df.columns if any(pre in c for pre in ['loser_', 'l_', 'p2_'])]
+    # startswith (no "in") para no capturar columnas como 'draw_size' que
+    # contienen 'w_' a mitad de palabra sin ser un prefijo real.
+    w_prefixes = ('winner_', 'w_', 'p1_')
+    l_prefixes = ('loser_', 'l_', 'p2_')
+    w_cols = [c for c in df.columns if c.startswith(w_prefixes)]
+    l_cols = [c for c in df.columns if c.startswith(l_prefixes)]
 
     # Mapeos para estandarizar a p1_ y p2_
     rename_a = {c: c.replace('winner_', 'p1_').replace('w_', 'p1_').replace('p1_', 'p1_') for c in w_cols}
@@ -147,8 +151,16 @@ def symmetrize_dataset(df):
 
 def prepare_features_for_training(raw_df):
     """
-    Pipeline principal de Feature Engineering.
-    Devuelve el DataFrame procesado y los estados finales de ELO y Rolling Stats.
+    Pipeline principal de Feature Engineering (limpieza, ELO, rolling stats,
+    superficie). Devuelve el DataFrame a nivel de partido (1 fila por
+    partido, SIN symmetrizar) ordenado cronológicamente, más los perfiles
+    de jugador.
+
+    La symmetrization (duplicar cada partido como p1=ganador / p1=perdedor)
+    se hace deliberadamente FUERA de esta función, después de separar
+    train/test en model.py: si se symmetriza antes del split, el "gemelo"
+    de un partido de test (mismos datos, jugadores invertidos) puede quedar
+    en el set de entrenamiento y el modelo memoriza en vez de generalizar.
     """
     df = raw_df.copy()
 
@@ -165,9 +177,6 @@ def prepare_features_for_training(raw_df):
 
     # 3. Codificación de superficie
     df = encode_surface(df)
-
-    # 4. Estructurar dataset simétrico para evitar sesgos
-    processed_df = symmetrize_dataset(df)
 
     # Combine static player info for profiles
     player_profiles = {}
@@ -206,7 +215,7 @@ def prepare_features_for_training(raw_df):
             **final_rolling_stats_state.get(player_id, {'rolling_avg_ace': 0, 'rolling_avg_df': 0, 'rolling_avg_1stWon': 0})
         }
 
-    return processed_df, player_profiles
+    return df, player_profiles
 
 def get_features_for_single_prediction(
     player1_profile,
