@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-<<<<<<< HEAD
 
 def calculate_elo_ratings(df_matches, initial_elo=1500, k_factor=32):
     """
@@ -15,21 +14,21 @@ def calculate_elo_ratings(df_matches, initial_elo=1500, k_factor=32):
     for index, row in df.iterrows():
         p1 = row['winner_id']
         p2 = row['loser_id']
-        
+
         r1 = elo_dict.get(p1, 1500)
         r2 = elo_dict.get(p2, 1500)
-        
+
         # Guardar ratings ANTES del partido para la predicción
         p1_elo_list.append(r1)
         p2_elo_list.append(r2)
-        
+
         # Calcular probabilidad esperada
         e1 = 1 / (1 + 10 ** ((r2 - r1) / 400))
-        
+
         # Actualizar ratings después del resultado
         elo_dict[p1] = r1 + k_factor * (1 - e1)
         elo_dict[p2] = r2 + k_factor * (0 - (1 - e1))
-    
+
     df['winner_elo_before_match'] = p1_elo_list
     df['loser_elo_before_match'] = p2_elo_list
     return df, elo_dict # Return modified df and final elo_dict for all players
@@ -42,7 +41,7 @@ def create_rolling_stats_for_all_matches(df_matches, window=10):
     rolling stats de cada jugador.
     """
     df = df_matches.copy().sort_values('tourney_date').reset_index(drop=True)
-    
+
     # Prepare a long format DataFrame for rolling calculations
     # Winner's stats
     w_df = df[['winner_id', 'tourney_date', 'w_ace', 'w_df', 'w_1stWon']].rename(columns={
@@ -64,7 +63,7 @@ def create_rolling_stats_for_all_matches(df_matches, window=10):
         long_df[f'rolling_avg_{stat}'] = long_df.groupby('player_id')[stat].transform(
             lambda x: x.rolling(window=window, min_periods=1).mean().shift(1)
         )
-    
+
     # Merge rolling stats back to the original match DataFrame
     # For winner
     df = df.merge(long_df[['player_id', 'tourney_date', 'rolling_avg_ace', 'rolling_avg_df', 'rolling_avg_1stWon']],
@@ -140,10 +139,10 @@ def symmetrize_dataset(df):
     df_b = df.copy()
     df_b = df_b.rename(columns=rename_b)
     df_b['target'] = 1  # El Jugador 2 (p2) ganó
-    
+
     # Unir ambas versiones
     combined_df = pd.concat([df_a, df_b], axis=0).reset_index(drop=True)
-    
+
     return combined_df
 
 def prepare_features_for_training(raw_df):
@@ -152,7 +151,7 @@ def prepare_features_for_training(raw_df):
     Devuelve el DataFrame procesado y los estados finales de ELO y Rolling Stats.
     """
     df = raw_df.copy()
-    
+
     # 1. Limpieza básica (descartar fechas inválidas en CSV mezclados o scrapeados)
     date_str = df['tourney_date'].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     df['tourney_date'] = pd.to_datetime(date_str, format='%Y%m%d', errors='coerce')
@@ -163,20 +162,20 @@ def prepare_features_for_training(raw_df):
     # 2. Ingeniería de características dinámicas (Elo, Rolling Stats)
     df, final_elo_state = calculate_elo_ratings(df)
     df, final_rolling_stats_state = create_rolling_stats_for_all_matches(df)
-    
+
     # 3. Codificación de superficie
     df = encode_surface(df)
 
     # 4. Estructurar dataset simétrico para evitar sesgos
     processed_df = symmetrize_dataset(df)
-    
+
     # Combine static player info for profiles
     player_profiles = {}
     for player_id in final_elo_state.keys():
         # Try to get static info from the last match they played
         last_match_as_winner = df[df['winner_id'] == player_id].sort_values('tourney_date', ascending=False).head(1)
         last_match_as_loser = df[df['loser_id'] == player_id].sort_values('tourney_date', ascending=False).head(1)
-        
+
         player_info = {}
         if not last_match_as_winner.empty:
             player_info = {
@@ -199,7 +198,7 @@ def prepare_features_for_training(raw_df):
                 'rank_points': last_match_as_loser['loser_rank_points'].iloc[0],
             }
         else: continue # Si no hay datos, saltar
-        
+
         player_profiles[player_id] = {
             'id': player_id,
             **player_info,
@@ -254,7 +253,7 @@ def get_features_for_single_prediction(
         'best_of': best_of,
         'tourney_level': tourney_level,
     }
-    
+
     prediction_df = pd.DataFrame([features_row])
     prediction_df = encode_surface(prediction_df)
 
@@ -267,85 +266,3 @@ if __name__ == "__main__":
     # features = prepare_features(data)
     # print(features.head())
     pass
-=======
-from pathlib import Path
-from functools import lru_cache
-from typing import Optional
-
-DATA_DIR = Path(__file__).parent.parent / "data" / "raw"
-
-
-@lru_cache(maxsize=1)
-def _load_matches() -> pd.DataFrame:
-    """Load main ATP singles matches from 2010 onwards (cached)."""
-    files = sorted(DATA_DIR.glob("atp_matches_20[12][0-9].csv"))
-    if not files:
-        return pd.DataFrame()
-    dfs = []
-    for f in files:
-        try:
-            dfs.append(pd.read_csv(f, low_memory=False))
-        except Exception:
-            pass
-    if not dfs:
-        return pd.DataFrame()
-    df = pd.concat(dfs, ignore_index=True)
-    df["tourney_date"] = pd.to_numeric(df["tourney_date"], errors="coerce")
-    return df
-
-
-def get_players(min_matches: int = 30) -> list:
-    df = _load_matches()
-    if df.empty:
-        return []
-    counts = (
-        df["winner_name"].value_counts()
-        .add(df["loser_name"].value_counts(), fill_value=0)
-    )
-    return sorted(counts[counts >= min_matches].index.tolist())
-
-
-def _surface_stats(df: pd.DataFrame, player: str, surface: str) -> dict:
-    recent = df[df["tourney_date"] >= 20190101]
-    if surface != "All":
-        recent = recent[recent["surface"] == surface]
-    won = len(recent[recent["winner_name"] == player])
-    lost = len(recent[recent["loser_name"] == player])
-    total = won + lost
-    return {"win_rate": won / total if total > 0 else 0.5, "matches": total}
-
-
-def _latest_rank(df: pd.DataFrame, player: str) -> float:
-    w = df[df["winner_name"] == player]["winner_rank"].dropna()
-    l = df[df["loser_name"] == player]["loser_rank"].dropna()
-    combined = pd.concat([w, l])
-    return float(combined.iloc[-1]) if not combined.empty else 200.0
-
-
-def build_features(
-    player1: str,
-    player2: str,
-    surface: str,
-    rank1: Optional[int] = None,
-    rank2: Optional[int] = None,
-) -> dict:
-    df = _load_matches()
-    r1 = float(rank1) if rank1 else _latest_rank(df, player1)
-    r2 = float(rank2) if rank2 else _latest_rank(df, player2)
-    s1 = _surface_stats(df, player1, surface)
-    s2 = _surface_stats(df, player2, surface)
-    h2h_p1 = len(df[(df["winner_name"] == player1) & (df["loser_name"] == player2)])
-    h2h_p2 = len(df[(df["winner_name"] == player2) & (df["loser_name"] == player1)])
-    return {
-        "rank_p1": r1,
-        "rank_p2": r2,
-        "rank_diff": r2 - r1,
-        "win_rate_p1": s1["win_rate"],
-        "win_rate_p2": s2["win_rate"],
-        "win_rate_diff": s1["win_rate"] - s2["win_rate"],
-        "matches_p1": s1["matches"],
-        "matches_p2": s2["matches"],
-        "h2h_p1": h2h_p1,
-        "h2h_p2": h2h_p2,
-    }
->>>>>>> daab2e1cdb2d49c4091b6dfcafe4a8caa0d5a9c3

@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import pandas as pd
 import xgboost as xgb
 from sklearn.model_selection import train_test_split
@@ -29,29 +28,29 @@ def train_tennis_model(df):
     # NO podemos usar estadísticas que se generan DURANTE el partido (aces, break points, etc.)
     # para predecir el resultado, porque no las conocemos antes de empezar.
     leakage_cols = [
-        'p1_ace', 'p1_df', 'p1_svpt', 'p1_1stIn', 'p1_1stWon', 'p1_2ndWon', 
+        'p1_ace', 'p1_df', 'p1_svpt', 'p1_1stIn', 'p1_1stWon', 'p1_2ndWon',
         'p1_SvGms', 'p1_bpSaved', 'p1_bpFaced',
-        'p2_ace', 'p2_df', 'p2_svpt', 'p2_1stIn', 'p2_1stWon', 'p2_2ndWon', 
-        'p2_SvGms', 'p2_bpSaved', 'p2_bpFaced', 
+        'p2_ace', 'p2_df', 'p2_svpt', 'p2_1stIn', 'p2_1stWon', 'p2_2ndWon',
+        'p2_SvGms', 'p2_bpSaved', 'p2_bpFaced',
         'minutes', 'score', 'round', 'match_num'
     ]
-    
+
     # Columnas de identificación que no sirven para el patrón matemático
     meta_cols = [
-        'tourney_id', 'tourney_name', 'tourney_date', 'p1_id', 'p2_id', 
+        'tourney_id', 'tourney_name', 'tourney_date', 'p1_id', 'p2_id',
         'p1_name', 'p2_name', 'p1_seed', 'p2_seed', 'p1_entry', 'p2_entry',
         'p1_ioc', 'p2_ioc', 'p1_hand', 'p2_hand', 'surface', 'best_of', 'tourney_level' # Add best_of and tourney_level to meta_cols
     ]
-    
+
     drop_cols = [c for c in leakage_cols + meta_cols if c in df.columns]
-    
+
     # 2. Separar características (X) y objetivo (y)
     # Solo nos quedamos con variables numéricas (rankings, edad, altura, etc.)
     X = df.drop(columns=['target'] + drop_cols)
     # Ensure all columns are numeric and handle NaNs
     X = X.apply(pd.to_numeric, errors='coerce').fillna(-1) # Convert all to numeric, then fill NaNs
     y = df['target']
-    
+
     print(f"Entrenando con columnas: {list(X.columns)}")
 
     # 3. Split cronológico (más realista para deportes)
@@ -59,7 +58,7 @@ def train_tennis_model(df):
     split_idx = int(len(df) * 0.8)
     X_train, X_test = X.iloc[:split_idx], X.iloc[split_idx:]
     y_train, y_test = y.iloc[:split_idx], y.iloc[split_idx:]
-    
+
     feature_names = list(X.columns)
 
     # 4. Modelo con Calibración (Vital para apuestas/probabilidades reales)
@@ -72,7 +71,7 @@ def train_tennis_model(df):
         random_state=42,
         eval_metric='logloss'
     )
-    
+
     # CalibratedClassifierCV for better probability estimates
     model = CalibratedClassifierCV(base_model, method='sigmoid', cv=5)
 
@@ -108,15 +107,15 @@ if __name__ == "__main__":
 
     # Cargar múltiples años si existen
     csv_files = sorted(glob.glob(os.path.join(RAW_DATA_PATH, "atp_matches_[0-9]*.csv")))
-    
+
     if csv_files:
         print(f"Cargando {len(csv_files)} archivos de datos...")
         # Load all CSVs and concatenate them
         raw_data = pd.concat([pd.read_csv(f) for f in csv_files])
-        
+
         # Transformar datos usando nuestro archivo de features
         processed_df, player_profiles = prepare_features_for_training(raw_data)
-        
+
         # Entrenar
         trained_model, feature_names, metrics = train_tennis_model(processed_df)
 
@@ -142,73 +141,3 @@ if __name__ == "__main__":
     else:
         print("Error: No se encontraron archivos CSV en backend/data/raw/")
         print("Ejecuta primero: python scripts/download_atp_data.py")
-=======
-import numpy as np
-from pathlib import Path
-from typing import Optional
-from .features import build_features
-
-MODEL_PATH = Path(__file__).parent.parent / "models" / "xgboost_model.pkl"
-
-_model = None
-_model_checked = False
-
-
-def _get_model():
-    global _model, _model_checked
-    if not _model_checked:
-        _model_checked = True
-        if MODEL_PATH.exists():
-            try:
-                import joblib
-                _model = joblib.load(MODEL_PATH)
-            except Exception:
-                _model = None
-    return _model
-
-
-def predict_winner(
-    player1: str,
-    player2: str,
-    surface: str,
-    rank1: Optional[int] = None,
-    rank2: Optional[int] = None,
-) -> dict:
-    feats = build_features(player1, player2, surface, rank1, rank2)
-    model = _get_model()
-
-    if model is not None:
-        X = np.array([[
-            feats["rank_diff"],
-            feats["win_rate_diff"],
-            feats["win_rate_p1"],
-            feats["win_rate_p2"],
-        ]])
-        prob_p1 = float(model.predict_proba(X)[0][1])
-        model_used = "xgboost"
-    else:
-        # Weighted heuristic: rank (50%) + surface win rate (35%) + H2H (15%)
-        score = 0.0
-        r1, r2 = feats["rank_p1"], feats["rank_p2"]
-        score += (r2 - r1) / max(r1 + r2, 1) * 0.50
-        score += feats["win_rate_diff"] * 0.35
-        h_total = feats["h2h_p1"] + feats["h2h_p2"]
-        if h_total > 0:
-            score += (feats["h2h_p1"] / h_total - 0.5) * 2 * 0.15
-        prob_p1 = float(1 / (1 + np.exp(-score * 4)))
-        model_used = "heuristic"
-
-    winner = player1 if prob_p1 >= 0.5 else player2
-    loser = player2 if winner == player1 else player1
-    prob_winner = prob_p1 if winner == player1 else 1 - prob_p1
-
-    return {
-        "winner": winner,
-        "loser": loser,
-        "probability": round(prob_winner, 3),
-        "prob_p1": round(prob_p1, 3),
-        "prob_p2": round(1 - prob_p1, 3),
-        "features": feats,
-        "model": model_used,
-    }
->>>>>>> daab2e1cdb2d49c4091b6dfcafe4a8caa0d5a9c3
