@@ -1,9 +1,20 @@
 from __future__ import annotations
 
+import json
+import logging
+from datetime import datetime, timezone
+from pathlib import Path
+
 from features import get_features_for_single_prediction
 
 from app.schemas.predict import PredictionRequest, PredictionResponse
 from app.state import app_state
+
+logger = logging.getLogger(__name__)
+
+PREDICTIONS_LOG_PATH = (
+    Path(__file__).resolve().parent.parent.parent / "data" / "processed" / "predictions_log.jsonl"
+)
 
 
 class PredictionError(Exception):
@@ -29,6 +40,34 @@ def _get_profile(player_id: int, label: str) -> dict:
             status_code=404,
         )
     return profile
+
+
+def _log_prediction(response: PredictionResponse) -> None:
+    """
+    Deja un registro de cada predicción servida, para poder cruzarlo más
+    adelante contra el resultado real y medir accuracy/CLV en vivo (no solo
+    en el backtest histórico). Nunca debe romper la respuesta al usuario si
+    falla — es un side-effect de auditoría, no parte del contrato de la API.
+    """
+    try:
+        PREDICTIONS_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        entry = {
+            "logged_at": datetime.now(timezone.utc).isoformat(),
+            "player1_id": response.player1_id,
+            "player2_id": response.player2_id,
+            "player1_name": response.player1_name,
+            "player2_name": response.player2_name,
+            "player1_win_probability": response.player1_win_probability,
+            "player2_win_probability": response.player2_win_probability,
+            "predicted_winner_id": response.predicted_winner_id,
+            "surface": response.surface,
+            "model_trained_at": app_state.model_metadata.get("trained_at"),
+            "model_git_commit": app_state.model_metadata.get("git_commit"),
+        }
+        with PREDICTIONS_LOG_PATH.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception:
+        logger.exception("No se pudo escribir el log de predicciones (no afecta la respuesta).")
 
 
 def predict_match_sync(request: PredictionRequest) -> PredictionResponse:
@@ -62,7 +101,7 @@ def predict_match_sync(request: PredictionRequest) -> PredictionResponse:
     predicted_winner_id = p1_id if p1_win_proba > p2_win_proba else p2_id
     predicted_winner_name = p1_name if predicted_winner_id == p1_id else p2_name
 
-    return PredictionResponse(
+    response = PredictionResponse(
         player1_id=p1_id,
         player2_id=p2_id,
         player1_name=p1_name,
@@ -74,3 +113,5 @@ def predict_match_sync(request: PredictionRequest) -> PredictionResponse:
         surface=request.surface,
         message="Predicción generada exitosamente.",
     )
+    _log_prediction(response)
+    return response

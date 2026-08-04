@@ -23,6 +23,9 @@ backend/models/*.pkl
 backend/data/odds/
 backend/data/processed/backtest_odds_detail.csv
 
+# Log de predicciones servidas (generado en runtime, crece localmente)
+backend/data/processed/predictions_log.jsonl
+
 # Node (Frontend)
 node_modules/
 .next/

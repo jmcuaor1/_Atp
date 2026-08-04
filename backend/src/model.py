@@ -191,6 +191,13 @@ if __name__ == "__main__":
             str(match_df["tourney_date"].min()),
             str(match_df["tourney_date"].max()),
         ]
+        try:
+            import subprocess
+            metrics["git_commit"] = subprocess.check_output(
+                ["git", "rev-parse", "HEAD"], cwd=BACKEND_DIR, text=True
+            ).strip()
+        except Exception:
+            metrics["git_commit"] = None
         # Guardamos un diccionario con metadatos útiles
         model_data = {
             'model': trained_model,
