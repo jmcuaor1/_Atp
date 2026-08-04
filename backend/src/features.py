@@ -133,6 +133,74 @@ def create_rolling_stats_for_all_matches(df_matches, window=10):
 
     return df, latest_rolling_stats
 
+def compute_fatigue_features(df_matches, window_days=14):
+    """
+    Calcula, por partido y jugador, días desde su último partido registrado
+    y cuántos partidos jugó en la ventana de `window_days` días previos.
+    Usa solo información ANTERIOR al partido actual (sin fuga).
+
+    Limitación conocida: 'tourney_date' es la fecha de inicio del torneo,
+    no la fecha exacta de cada partido, así que esto mide en realidad
+    "días/partidos desde el último TORNEO" — una aproximación gruesa pero
+    útil para detectar calendario cargado (ej. Masters 1000 consecutivos)
+    o regreso tras inactividad/lesión.
+    """
+    df = df_matches.copy().reset_index(drop=True)
+    df['match_uid'] = df.index
+
+    w_df = df[['match_uid', 'winner_id', 'tourney_date']].rename(columns={'winner_id': 'player_id'})
+    w_df['is_winner'] = 1
+    l_df = df[['match_uid', 'loser_id', 'tourney_date']].rename(columns={'loser_id': 'player_id'})
+    l_df['is_winner'] = 0
+
+    long_df = pd.concat([w_df, l_df]).sort_values(['player_id', 'tourney_date']).reset_index(drop=True)
+
+    days_since_all = np.full(len(long_df), np.nan)
+    matches_recent_all = np.zeros(len(long_df), dtype=int)
+    cutoff_delta = np.timedelta64(window_days, 'D')
+
+    for _, idx in long_df.groupby('player_id').groups.items():
+        idx = idx.to_numpy()
+        dates = long_df.loc[idx, 'tourney_date'].to_numpy()
+        for i in range(1, len(dates)):
+            days_since_all[idx[i]] = (dates[i] - dates[i - 1]) / np.timedelta64(1, 'D')
+            cutoff = dates[i] - cutoff_delta
+            matches_recent_all[idx[i]] = int((dates[:i] >= cutoff).sum())
+
+    long_df['days_since_last_match'] = days_since_all
+    long_df['matches_last_14d'] = matches_recent_all
+
+    w_long = long_df[long_df['is_winner'] == 1][['match_uid', 'days_since_last_match', 'matches_last_14d']]
+    l_long = long_df[long_df['is_winner'] == 0][['match_uid', 'days_since_last_match', 'matches_last_14d']]
+
+    df = df.merge(w_long, on='match_uid', how='left').rename(columns={
+        'days_since_last_match': 'p1_days_since_last_match',
+        'matches_last_14d': 'p1_matches_last_14d',
+    })
+    df = df.merge(l_long, on='match_uid', how='left').rename(columns={
+        'days_since_last_match': 'p2_days_since_last_match',
+        'matches_last_14d': 'p2_matches_last_14d',
+    })
+
+    # Debut (sin historial previo): asumimos descanso completo, sin fatiga
+    df['p1_days_since_last_match'] = df['p1_days_since_last_match'].fillna(365)
+    df['p2_days_since_last_match'] = df['p2_days_since_last_match'].fillna(365)
+    df['p1_matches_last_14d'] = df['p1_matches_last_14d'].fillna(0)
+    df['p2_matches_last_14d'] = df['p2_matches_last_14d'].fillna(0)
+    df = df.drop(columns=['match_uid'])
+
+    # Snapshot "a hoy" por jugador, para predicciones en vivo (no hay partido futuro conocido)
+    latest_fatigue = {}
+    for player_id, idx in long_df.groupby('player_id').groups.items():
+        last_date = long_df.loc[idx, 'tourney_date'].max()
+        latest_fatigue[player_id] = {
+            'days_since_last_match': float((pd.Timestamp.now() - last_date).days),
+            'matches_last_14d': 0,
+        }
+
+    return df, latest_fatigue
+
+
 def encode_surface(df):
     """
     Convierte superficies (Clay, Hard, Grass) en valores numéricos o One-Hot.
@@ -202,9 +270,10 @@ def prepare_features_for_training(raw_df):
     df = df.sort_values('tourney_date')
     df = df.dropna(subset=['winner_rank', 'loser_rank'])  # Rankings son vitales
 
-    # 2. Ingeniería de características dinámicas (Elo, Rolling Stats)
+    # 2. Ingeniería de características dinámicas (Elo, Rolling Stats, Fatiga)
     df, final_elo_state = calculate_elo_ratings(df)
     df, final_rolling_stats_state = create_rolling_stats_for_all_matches(df)
+    df, final_fatigue_state = compute_fatigue_features(df)
 
     # 3. Codificación de superficie
     df = encode_surface(df)
@@ -243,7 +312,8 @@ def prepare_features_for_training(raw_df):
             'id': player_id,
             **player_info,
             'elo': final_elo_state.get(player_id, 1500),
-            **final_rolling_stats_state.get(player_id, {'rolling_avg_ace': 0, 'rolling_avg_df': 0, 'rolling_avg_1stWon': 0})
+            **final_rolling_stats_state.get(player_id, {'rolling_avg_ace': 0, 'rolling_avg_df': 0, 'rolling_avg_1stWon': 0}),
+            **final_fatigue_state.get(player_id, {'days_since_last_match': 365, 'matches_last_14d': 0}),
         }
 
     return df, player_profiles
@@ -275,6 +345,8 @@ def get_features_for_single_prediction(
         'p1_rolling_avg_ace': player1_profile['rolling_avg_ace'],
         'p1_rolling_avg_df': player1_profile['rolling_avg_df'],
         'p1_rolling_avg_1stWon': player1_profile['rolling_avg_1stWon'],
+        'p1_days_since_last_match': player1_profile.get('days_since_last_match', 365),
+        'p1_matches_last_14d': player1_profile.get('matches_last_14d', 0),
 
         'p2_id': player2_profile['id'],
         'p2_name': player2_profile['name'],
@@ -288,6 +360,8 @@ def get_features_for_single_prediction(
         'p2_rolling_avg_ace': player2_profile['rolling_avg_ace'],
         'p2_rolling_avg_df': player2_profile['rolling_avg_df'],
         'p2_rolling_avg_1stWon': player2_profile['rolling_avg_1stWon'],
+        'p2_days_since_last_match': player2_profile.get('days_since_last_match', 365),
+        'p2_matches_last_14d': player2_profile.get('matches_last_14d', 0),
 
         'surface': match_surface,
         'best_of': best_of,
