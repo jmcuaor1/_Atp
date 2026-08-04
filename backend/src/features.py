@@ -1,12 +1,29 @@
 import pandas as pd
 import numpy as np
 
+ROUND_ORDER = {
+    'RR': 0, 'BR': 1, 'R128': 2, 'R64': 3, 'R32': 4, 'R16': 5,
+    'QF': 6, 'SF': 7, 'F': 8,
+}
+
+
 def calculate_elo_ratings(df_matches, initial_elo=1500, k_factor=32):
     """
     Calcula el rating ELO dinámico para cada jugador a lo largo del tiempo.
     Devuelve el DataFrame con ELOs antes del partido y un diccionario con los ELOs finales de cada jugador.
+
+    'tourney_date' es la fecha de inicio del torneo (no la fecha real del
+    partido), así que varios partidos de un mismo torneo comparten fecha.
+    Se usa 'round' como desempate de orden para aproximar mejor la secuencia
+    cronológica real de rondas dentro de un torneo.
     """
-    df = df_matches.sort_values('tourney_date').reset_index(drop=True)
+    df = df_matches.copy()
+    if 'round' in df.columns:
+        df['_round_ord'] = df['round'].map(ROUND_ORDER).fillna(-1)
+        df = df.sort_values(['tourney_date', '_round_ord']).drop(columns=['_round_ord'])
+    else:
+        df = df.sort_values('tourney_date')
+    df = df.reset_index(drop=True)
     elo_dict = {} # player_id -> rating
     p1_elo_list = []
     p2_elo_list = []
@@ -39,23 +56,35 @@ def create_rolling_stats_for_all_matches(df_matches, window=10):
     en cada partido, usando solo datos anteriores.
     Devuelve el DataFrame con las rolling stats añadidas y un diccionario con las últimas
     rolling stats de cada jugador.
+
+    IMPORTANTE: 'tourney_date' es la fecha de INICIO del torneo, no la fecha
+    real de cada partido — un jugador que llega a la final de un Grand Slam
+    tiene 7 partidos distintos con la misma tourney_date. Por eso el join no
+    puede usar (player_id, tourney_date) como llave (no es única: produce un
+    merge many-to-many que duplica filas). Se usa un id de partido único
+    (match_uid) en su lugar; 'round' se usa solo como desempate de orden
+    dentro del mismo tourney_date, para aproximar el orden cronológico real
+    de las rondas.
     """
-    df = df_matches.copy().sort_values('tourney_date').reset_index(drop=True)
+    df = df_matches.copy().reset_index(drop=True)
+    df['match_uid'] = df.index
+    round_ord = df['round'].map(ROUND_ORDER).fillna(-1) if 'round' in df.columns else 0
+    df = df.assign(_round_ord=round_ord).sort_values(['tourney_date', '_round_ord']).reset_index(drop=True)
 
     # Prepare a long format DataFrame for rolling calculations
     # Winner's stats
-    w_df = df[['winner_id', 'tourney_date', 'w_ace', 'w_df', 'w_1stWon']].rename(columns={
+    w_df = df[['match_uid', 'winner_id', 'tourney_date', '_round_ord', 'w_ace', 'w_df', 'w_1stWon']].rename(columns={
         'winner_id': 'player_id', 'w_ace': 'ace', 'w_df': 'df', 'w_1stWon': '1stWon'
     })
     w_df['is_winner'] = 1
 
     # Loser's stats
-    l_df = df[['loser_id', 'tourney_date', 'l_ace', 'l_df', 'l_1stWon']].rename(columns={
+    l_df = df[['match_uid', 'loser_id', 'tourney_date', '_round_ord', 'l_ace', 'l_df', 'l_1stWon']].rename(columns={
         'loser_id': 'player_id', 'l_ace': 'ace', 'l_df': 'df', 'l_1stWon': '1stWon'
     })
     l_df['is_winner'] = 0
 
-    long_df = pd.concat([w_df, l_df]).sort_values(['player_id', 'tourney_date']).reset_index(drop=True)
+    long_df = pd.concat([w_df, l_df]).sort_values(['player_id', 'tourney_date', '_round_ord']).reset_index(drop=True)
 
     # Calculate rolling averages, shifted by 1 to prevent data leakage
     rolling_stats_cols = ['ace', 'df', '1stWon']
@@ -64,31 +93,33 @@ def create_rolling_stats_for_all_matches(df_matches, window=10):
             lambda x: x.rolling(window=window, min_periods=1).mean().shift(1)
         )
 
-    # Merge rolling stats back to the original match DataFrame
-    # For winner
-    df = df.merge(long_df[['player_id', 'tourney_date', 'rolling_avg_ace', 'rolling_avg_df', 'rolling_avg_1stWon']],
-                  left_on=['winner_id', 'tourney_date'], right_on=['player_id', 'tourney_date'], how='left')
+    # Merge rolling stats back a la fila original vía match_uid (única por
+    # partido). Cada match_uid tiene exactamente una fila winner y una loser
+    # en long_df, así que este merge es 1:1, no many-to-many.
+    w_long = long_df[long_df['is_winner'] == 1][['match_uid', 'rolling_avg_ace', 'rolling_avg_df', 'rolling_avg_1stWon']]
+    l_long = long_df[long_df['is_winner'] == 0][['match_uid', 'rolling_avg_ace', 'rolling_avg_df', 'rolling_avg_1stWon']]
+
+    df = df.merge(w_long, on='match_uid', how='left')
     df = df.rename(columns={
         'rolling_avg_ace': 'p1_rolling_avg_ace',
         'rolling_avg_df': 'p1_rolling_avg_df',
         'rolling_avg_1stWon': 'p1_rolling_avg_1stWon'
-    }).drop(columns=['player_id'])
+    })
 
-    # For loser
-    df = df.merge(long_df[['player_id', 'tourney_date', 'rolling_avg_ace', 'rolling_avg_df', 'rolling_avg_1stWon']],
-                  left_on=['loser_id', 'tourney_date'], right_on=['player_id', 'tourney_date'], how='left')
+    df = df.merge(l_long, on='match_uid', how='left')
     df = df.rename(columns={
         'rolling_avg_ace': 'p2_rolling_avg_ace',
         'rolling_avg_df': 'p2_rolling_avg_df',
         'rolling_avg_1stWon': 'p2_rolling_avg_1stWon'
-    }).drop(columns=['player_id'])
+    })
 
+    df = df.drop(columns=['match_uid', '_round_ord'])
     df = df.fillna(0) # Fill NaNs for new players or early matches
 
     # Extract final rolling stats state for each player
     latest_rolling_stats = {}
     for player_id in long_df['player_id'].unique():
-        player_df = long_df[long_df['player_id'] == player_id].sort_values('tourney_date', ascending=False)
+        player_df = long_df[long_df['player_id'] == player_id].sort_values(['tourney_date', '_round_ord'], ascending=False)
         if not player_df.empty:
             latest_rolling_stats[player_id] = {
                 'rolling_avg_ace': player_df['rolling_avg_ace'].iloc[0],

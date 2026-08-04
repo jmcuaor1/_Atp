@@ -1,10 +1,17 @@
-<<<<<<< HEAD
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
 .venv/
 venv/
+
+.env
 
 # Datos y modelos (generados localmente)
 backend/data/raw/*.csv
@@ -12,22 +19,12 @@ backend/models/*.pkl
 !backend/data/raw/.gitkeep
 !backend/models/.gitkeep
 
+# Cuotas históricas de terceros (copyright del proveedor, no se redistribuyen)
+backend/data/odds/
+backend/data/processed/backtest_odds_detail.csv
+
 # Node (Frontend)
 node_modules/
 .next/
 out/
 build/
-=======
-.env
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-*.egg-info/
-dist/
-build/
-.venv/
-venv/
-models/
->>>>>>> daab2e1cdb2d49c4091b6dfcafe4a8caa0d5a9c3
