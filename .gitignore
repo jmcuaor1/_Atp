@@ -26,6 +26,10 @@ backend/data/processed/backtest_odds_detail.csv
 # Log de predicciones servidas (generado en runtime, crece localmente)
 backend/data/processed/predictions_log.jsonl
 
+# Fase 7: cuotas en vivo capturadas + resultado sentenciado (runtime, local)
+backend/data/processed/live_odds_log.jsonl
+backend/data/processed/live_odds_settled.csv
+
 # Node (Frontend)
 node_modules/
 .next/

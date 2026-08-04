@@ -100,7 +100,19 @@ def predict_on_test_set(test_df: pd.DataFrame):
     out = test_df[["tourney_date", "surface", "p1_name", "p2_name", "target"]].copy()
     out["p1_win_prob"] = 1 - p2_win_proba
     out["p2_win_prob"] = p2_win_proba
+    if "p1_elo_before_match" in test_df.columns and "p2_elo_before_match" in test_df.columns:
+        out["elo_diff"] = test_df["p1_elo_before_match"] - test_df["p2_elo_before_match"]
     return out
+
+
+# Columnas de tennis-data.co.uk que no se usan para el cruce en sí pero sí
+# para segmentar el backtest por torneo/ronda/book (ver segment_backtest.py).
+# Se listan explícitamente (en vez de tomar todo el excel) porque no todos
+# los años tienen exactamente las mismas columnas de books.
+SEGMENT_COLS = [
+    "Series", "Court", "Round", "Best of", "WRank", "LRank",
+    "PSW", "PSL", "B365W", "B365L",
+]
 
 
 def load_odds() -> pd.DataFrame:
@@ -152,7 +164,7 @@ def match_predictions_to_odds(predictions: pd.DataFrame, odds: pd.DataFrame) -> 
             fair_denom = (1 / odds_row["AvgW"]) + (1 / odds_row["AvgL"])
             market_p1_win_prob = (1 / odds_row["AvgL"]) / fair_denom
 
-        matched_rows.append({
+        row_out = {
             "tourney_date": pred["tourney_date"],
             "surface": pred["surface"],
             "p1_name": pred["p1_name"],
@@ -162,7 +174,17 @@ def match_predictions_to_odds(predictions: pd.DataFrame, odds: pd.DataFrame) -> 
             "market_p2_win_prob": 1 - market_p1_win_prob,
             "avg_odds_winner": odds_row["AvgW"],
             "avg_odds_loser": odds_row["AvgL"],
-        })
+        }
+        if "elo_diff" in pred.index:
+            row_out["elo_diff"] = pred["elo_diff"]
+        # Cuotas/metadata extra para segmentación (segment_backtest.py). Se
+        # guardan tal cual desde tennis-data.co.uk, orientadas a Winner/Loser
+        # (no a p1/p2), porque las dimensiones de segmento (torneo, ronda,
+        # ranking) no dependen de qué lado terminó en p1 vs p2.
+        for col in SEGMENT_COLS:
+            if col in odds_row.index:
+                row_out[col] = odds_row[col]
+        matched_rows.append(row_out)
 
     return pd.DataFrame(matched_rows)
 

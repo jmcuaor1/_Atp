@@ -107,6 +107,47 @@ Validación por temporada (¿el resultado es estable o una racha?):
 python backend/scripts/walk_forward_validate.py
 ```
 
+**¿Hay algún segmento (superficie, torneo, favorito/underdog, book) donde sí
+haya edge?** Se probaron 69 combinaciones de segmento × book sobre 2022-2024
+con un split discovery (2022-2023) / confirmación holdout (2024) para no
+confundir ruido de muestra chica con edge real. Resultado: **ninguna** tuvo
+ROI con intervalo de confianza positivo en ambos períodos a la vez. Detalle
+completo y metodología en
+[`backend/data/processed/segment_decision.md`](backend/data/processed/segment_decision.md).
+
+```bash
+python backend/scripts/segment_backtest.py
+```
+
+### Fase 7: CLV en vivo (hacia adelante, sin resultado todavía)
+
+Todo lo anterior es backtest histórico. Para saber si el modelo tiene edge
+*en la práctica*, no solo contra datos pasados, `scripts/fetch_live_odds.py`
+trae cuotas en vivo de [The Odds API](https://the-odds-api.com) para
+partidos ATP activos, las cruza con una predicción real (llamando al propio
+`/predict`), y deja todo registrado en `data/processed/live_odds_log.jsonl`.
+Más adelante, cuando esos partidos ya se jugaron, `scripts/settle_live_odds.py`
+trae el resultado y calcula el ROI real acumulado.
+
+**Cobertura parcial**: el tier gratis de The Odds API cubre Grand Slam,
+ATP 1000, ATP 500, WTA 1000 y WTA 500 — **no ATP 250**, así que en varias
+semanas del calendario no va a haber ningún torneo ATP activo para trackear.
+
+```bash
+# 1. Conseguir un API key gratis en https://the-odds-api.com y agregarlo a backend/.env
+#    (ODDS_API_KEY=..., ver .env.example)
+# 2. Con la API real corriendo (uvicorn api:app --reload):
+python backend/scripts/fetch_live_odds.py
+
+# 3. Días/semanas después, cuando esos partidos ya se jugaron:
+python backend/scripts/settle_live_odds.py
+```
+
+Esto **no tiene conclusión todavía** — a diferencia de las Fases 1-6, acá
+hay que dejarlo correr y acumular apuestas sentenciadas con el tiempo (ver
+el umbral de muestra mínima usado en Fase 6) antes de que el ROI reportado
+signifique algo.
+
 ## Estructura del proyecto
 
 ```
@@ -118,6 +159,9 @@ _Atp/
 │   │   ├── download_atp_data.py     # Descarga CSV oficiales (Jeff Sackmann)
 │   │   ├── setup_project.py         # Descarga + entrena en un paso
 │   │   ├── backtest_odds.py         # Modelo vs. cuotas reales de mercado
+│   │   ├── segment_backtest.py      # Busca segmentos con edge (Fase 6)
+│   │   ├── fetch_live_odds.py       # Captura cuotas en vivo (Fase 7)
+│   │   ├── settle_live_odds.py      # Sentencia apuestas en vivo (Fase 7)
 │   │   └── walk_forward_validate.py # Validación por temporada
 │   ├── models/            # tennis_model.pkl, player_profiles.pkl (generados)
 │   └── data/
