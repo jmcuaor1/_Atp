@@ -113,6 +113,23 @@ def test_resolve_player_id_matches_by_surname_and_initial(monkeypatch):
     assert player["id"] == 104925
 
 
+def test_resolve_player_id_queries_by_last_word_for_compound_surname(monkeypatch):
+    """/players/search hace substring literal contra el nombre guardado (con
+    espacios), así que la query no puede ser el apellido normalizado sin
+    espacios ('deminaur') o nunca matchea 'Alex De Minaur'."""
+    candidates = [{"id": 200282, "name": "Alex De Minaur", "rank": 10}]
+    seen_queries = []
+
+    def fake_get(url, params=None, timeout=None):
+        seen_queries.append(params["q"])
+        return SimpleNamespace(json=lambda: candidates, raise_for_status=lambda: None)
+
+    monkeypatch.setattr(fetch_live_odds.httpx, "get", fake_get)
+    player = fetch_live_odds.resolve_player_id("Alex de Minaur")
+    assert player["id"] == 200282
+    assert seen_queries == ["Minaur"]
+
+
 def test_resolve_player_id_returns_none_without_match(monkeypatch):
     monkeypatch.setattr(
         fetch_live_odds.httpx, "get",

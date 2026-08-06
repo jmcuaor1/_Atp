@@ -59,8 +59,14 @@ def resolve_player_id(full_name: str) -> dict | None:
     last, initial = normalize_full_name(full_name)
     if not last:
         return None
+    # /players/search hace substring literal contra el nombre guardado (con
+    # espacios), así que no se le puede mandar `last` (que viene sin
+    # espacios, p.ej. "deminaur") o nunca matchea apellidos compuestos como
+    # "Alex De Minaur" o "Botic Van De Zandschulp". Se busca por la última
+    # palabra del nombre en cambio, y se desambigua después con `last`/`initial`.
+    query = full_name.strip().split()[-1]
     resp = httpx.get(
-        f"{API_BASE_URL}/players/search", params={"q": last, "limit": 20}, timeout=HTTP_TIMEOUT,
+        f"{API_BASE_URL}/players/search", params={"q": query, "limit": 20}, timeout=HTTP_TIMEOUT,
     )
     resp.raise_for_status()
     for candidate in resp.json():
