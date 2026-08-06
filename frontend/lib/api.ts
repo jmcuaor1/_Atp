@@ -3,6 +3,7 @@ import type {
   PlayerSearchResult,
   PredictionRequest,
   PredictionResponse,
+  TodayMatchesResponse,
 } from '@/lib/types'
 
 export function getApiUrl(): string {
@@ -63,5 +64,16 @@ export async function predictMatch(
     throw new Error(await parseError(response))
   }
 
+  return response.json()
+}
+
+export async function fetchTodayMatches(
+  refresh = false,
+): Promise<TodayMatchesResponse> {
+  const params = refresh ? '?refresh=true' : ''
+  const response = await fetch(`${getApiUrl()}/matches/today${params}`)
+  if (!response.ok) {
+    throw new Error(await parseError(response))
+  }
   return response.json()
 }

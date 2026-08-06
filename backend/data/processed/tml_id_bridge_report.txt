@@ -1,0 +1,177 @@
+Puente de IDs TML -> Sackmann — 434 existentes, 172 nuevos
+
+=== Jugadores nuevos (sin historial antes de 2025) ===
+900001: Aaron Gil Garcia
+900002: Abdulmajeed Bukhari
+900003: Abdulmalek Burasais
+900004: Adolfo Daniel Vallejo
+900005: Adrian Boitan
+900006: Ahmad Nael Qureshi
+900007: Aidan Mayo
+900007: Alan Magadan
+900008: Akram El Sallaly
+900008: Albert Ramos-Vinolas
+900009: Alaa Trifi
+900010: Alex Hernandez
+900012: Aleksa Krivokapic
+900012: Alexander Vasilev
+900013: Alex Barrena
+900013: Amir Omarkhanov
+900014: Ammar Alhogbani
+900015: Alex Santino Nunez Vera
+900016: Alex Santino Nuñez Vera
+900017: Andreas Timini
+900018: Arda Azkara
+900019: Amit Vales
+900019: Arthur Gea
+900020: Atakan Karahan
+900021: Ammar Elamin
+900021: Cesar Cruz
+900022: Amr Elsayed Abdou Ah Mohamed
+900022: Christopher Bulus
+900023: Christos Antonopoulos
+900024: Antoine Ghibaudo
+900024: Cleeve Harper
+900025: Anton Shepp
+900025: Clement Tabur
+900027: Colton Smith
+900028: Connor Doig
+900029: Connor Henry Van Schalkwyk
+900030: Corentin Denolly
+900031: Dan Added
+900033: Daniel Antonio Nunez
+900034: Codie Schalk Van Schalkwyk
+900036: Dhakshineswar Suresh
+900037: Diego Dedura-Palomero
+900039: Cruz Hewitt
+900041: Dan Martin
+900041: Fadi Bidan
+900043: Daniel Merida
+900043: Federico Cina
+900044: Daniels Tens
+900044: Filip Jeff Planinsek
+900045: David Ekpenyong
+900046: Gabriel Ghetu
+900047: Diego Dedura
+900047: Gauthier Onclin
+900048: Gerard Campana Lee
+900049: Dylan Dietrich
+900049: Govind Nanda
+900050: Edward Winter
+900051: Emilio Camacho
+900051: Henry Bernet
+900052: Enmanuel Munoz
+900053: Ethan Denzel Sibanda
+900054: Eugenio Gonzalez Fitzmaurice
+900056: Fares Zakaria
+900056: Iliyan Radulov
+900057: Faris Zakaria
+900057: Ivan Ivanov
+900058: Jack Pinnington Jones
+900059: Felix Gill
+900059: James Trotter
+900060: James Watt
+900061: Filip Pieczonka
+900061: Johannus Monday
+900062: Freddy Murray
+900066: Gianluca Cadenasso
+900066: Karue Sell
+900068: Gunawan Trismuwantara
+900069: Guy Den Ouden
+900069: Liam Draxl
+900070: Hamish Stewart
+900071: Harry Wendelken
+900071: Louis Van Herck
+900073: Hod'abalo Padio
+900073: Luis Carlos Alvarez
+900074: Huzaifa Abdul Rehman
+900074: M Rifki Fitriadi
+900075: Ignacio Parisca Romera
+900075: Marc Van Der Merwe
+900076: Igor Marcondes
+900077: Ilie Cazac
+900078: Martyn Pawelski
+900079: Maxim Mrva
+900080: Mees Rottgering
+900083: Joao Lucas Reis Da Silva
+900083: Murphy Cassone
+900084: Nicolas Arseneault
+900085: John Peers
+900085: Ofek Shimanov
+900086: Kaan Isik Kosaner
+900086: Oliver Crawford
+900087: Kaipo Marshall
+900087: Oliver Tarvet
+900088: Karan Singh
+900088: Olle Wallin
+900089: Karim Bennani
+900090: Karim Ibrahim
+900090: Patrick Zahraj
+900091: Karol Filar
+900091: Petar Jovanovic
+900092: Peter Buldorini
+900093: Kilian Feldbausch
+900094: Kodjo Charles Alipoe-Tchotchodji
+900094: Radu David Turcanu
+900095: Lautaro Midon
+900095: Rafael De Alba
+900096: Leo Matthysen
+900096: Rafael Jodar
+900098: Liova Ajavon
+900098: Rei Sakamoto
+900099: Ricardo Rodriguez - Pace
+900100: Lucky Candra Kurniawan
+900100: Roberto Cid Subervi
+900102: Luis Guto Miguel
+900102: Sanhui Shin
+900103: Luka Pavlovic
+900104: Stefan Dostanic
+900105: Stephen Slocombe
+900106: Markus Molder
+900107: Martin Antonio Vergara del Puerto
+900107: Taha Baadi
+900108: Martin Krumich
+900108: Thanapet Chanta
+900109: Tomasz Berkieta
+900110: Matias Soto
+900110: Trevor Svajda
+900111: Matyas Fuele
+900111: Tristan Boyer
+900112: Max Basing
+900112: Tsung-Hao Huang
+900113: Max Dahlin
+900114: Max Schoenhaus
+900114: Valentin Royer
+900115: William Rejchtman Vinciguerra
+900117: Mert Alkaya
+900117: Yunchaokete Bu
+900118: Mert Naci Turker
+900119: Michael Zheng
+900120: Miguel Damas
+900121: Mika Brunold
+900122: Moise Kouame
+900123: Mukund Sasikumar
+900126: Niels McDonald
+900128: Ognjen Milic
+900132: Patrick Agbo-Panzo
+900136: Pijus Vaitiekunas
+900140: Raphael Calzi
+900141: Raul Garcia
+900142: Reda Bennani
+900146: Ronan Tashinga Mtisi
+900148: Saud Alhogbani
+900149: Siu Chi Nicholas Cheng
+900151: Stefan Palosi
+900153: Sylvestre Monnou
+900156: Thijs Boogaard
+900157: Thomas Faurel
+900158: Tiago Pereira
+900159: Tiago Torres
+900160: Toby Samuel
+900161: Tom Gentzsch
+900166: Tsz Fu Wong
+900169: Xavier Lawrence
+900171: Ziga Sesko
+900172: otic van de Zandschulp
+
+=== Casos ambiguos (revisar a mano si el jugador importa) ===

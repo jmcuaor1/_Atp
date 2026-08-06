@@ -42,3 +42,26 @@ export interface HealthResponse {
   players_count: number
   feature_count: number
 }
+
+export interface TodayMatch {
+  event_id: string
+  tournament: string
+  commence_time: string | null
+  surface: string
+  player1_name: string
+  player2_name: string
+  player1_id: number | null
+  player2_id: number | null
+  player1_win_probability: number | null
+  player2_win_probability: number | null
+  predicted_winner_name: string | null
+  resolved: boolean
+  note: string | null
+}
+
+export interface TodayMatchesResponse {
+  matches: TodayMatch[]
+  model_data_cutoff: string | null
+  generated_at: string
+  cached: boolean
+}

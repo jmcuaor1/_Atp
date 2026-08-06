@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import CORS_ORIGINS, LOG_LEVEL
-from app.routers import health, meta, players, predict
+from app.routers import health, matches, meta, players, predict
 from app.state import load_resources
 
 logging.basicConfig(
@@ -45,6 +45,7 @@ def create_app() -> FastAPI:
     application.include_router(predict.router)
     application.include_router(players.router)
     application.include_router(meta.router)
+    application.include_router(matches.router)
 
     return application
 
