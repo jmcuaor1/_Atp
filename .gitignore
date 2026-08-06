@@ -30,6 +30,7 @@ backend/data/processed/predictions_log.jsonl
 backend/data/processed/live_odds_log.jsonl
 backend/data/processed/live_odds_settled.csv
 backend/data/processed/fetch_live_odds_cron.log
+backend/data/processed/weekly_summary.txt
 
 # uvicorn corriendo local para el cron de Fase 7
 backend/uvicorn.log
