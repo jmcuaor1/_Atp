@@ -50,6 +50,47 @@ def calculate_elo_ratings(df_matches, initial_elo=1500, k_factor=32):
     df['loser_elo_before_match'] = p2_elo_list
     return df, elo_dict # Return modified df and final elo_dict for all players
 
+
+def calculate_surface_elo_ratings(df_matches, initial_elo=1500, k_factor=32):
+    """
+    Igual que calculate_elo_ratings, pero lleva un rating independiente por
+    (jugador, superficie): un jugador dominante en clay pero flojo en grass
+    tiene dos ratings distintos en vez de uno promediado, que es justamente
+    la señal que el Elo global no puede capturar.
+    """
+    df = df_matches.copy()
+    if 'round' in df.columns:
+        df['_round_ord'] = df['round'].map(ROUND_ORDER).fillna(-1)
+        df = df.sort_values(['tourney_date', '_round_ord']).drop(columns=['_round_ord'])
+    else:
+        df = df.sort_values('tourney_date')
+    df = df.reset_index(drop=True)
+
+    elo_dict = {}  # (player_id, surface) -> rating
+    p1_elo_list = []
+    p2_elo_list = []
+
+    for _, row in df.iterrows():
+        surface = row['surface'] if pd.notna(row.get('surface')) else 'Unknown'
+        p1 = row['winner_id']
+        p2 = row['loser_id']
+
+        r1 = elo_dict.get((p1, surface), initial_elo)
+        r2 = elo_dict.get((p2, surface), initial_elo)
+
+        p1_elo_list.append(r1)
+        p2_elo_list.append(r2)
+
+        e1 = 1 / (1 + 10 ** ((r2 - r1) / 400))
+
+        elo_dict[(p1, surface)] = r1 + k_factor * (1 - e1)
+        elo_dict[(p2, surface)] = r2 + k_factor * (0 - (1 - e1))
+
+    df['winner_surface_elo_before_match'] = p1_elo_list
+    df['loser_surface_elo_before_match'] = p2_elo_list
+    return df, elo_dict
+
+
 def create_rolling_stats_for_all_matches(df_matches, window=10):
     """
     Crea promedios móviles para estadísticas clave (aces, df, 1stWon) para cada jugador
@@ -133,6 +174,92 @@ def create_rolling_stats_for_all_matches(df_matches, window=10):
 
     return df, latest_rolling_stats
 
+
+def create_return_stats_for_all_matches(df_matches, window=10):
+    """
+    Rolling averages de resto y quiebre: % de break points salvados al
+    servir (resiliencia en el propio saque) y % de puntos ganados al
+    restar el saque del rival (fortaleza en el resto), shift(1) para usar
+    solo datos anteriores.
+
+    A diferencia de create_rolling_stats_for_all_matches (que solo mira las
+    estadísticas de saque del propio jugador), el resto depende del RIVAL
+    de cada partido puntual: para medir cuánto rompe un jugador el saque
+    ajeno hay que mirar las columnas de servicio del OPONENTE en ESE
+    partido (w_/l_ svpt, 1stWon, 2ndWon), no las propias.
+    """
+    df = df_matches.copy().reset_index(drop=True)
+    df['match_uid'] = df.index
+    round_ord = df['round'].map(ROUND_ORDER).fillna(-1) if 'round' in df.columns else 0
+    df = df.assign(_round_ord=round_ord).sort_values(['tourney_date', '_round_ord']).reset_index(drop=True)
+
+    def _safe_pct(num, den):
+        num = pd.to_numeric(num, errors='coerce')
+        den = pd.to_numeric(den, errors='coerce')
+        return np.where(den > 0, num / den, np.nan)
+
+    # Break points salvados sirviendo (resiliencia en el propio saque)
+    w_bp_saved_pct = _safe_pct(df['w_bpSaved'], df['w_bpFaced'])
+    l_bp_saved_pct = _safe_pct(df['l_bpSaved'], df['l_bpFaced'])
+
+    # Puntos ganados restando el saque del RIVAL de ese partido (fortaleza en el resto)
+    w_return_win_pct = _safe_pct(df['l_svpt'] - df['l_1stWon'] - df['l_2ndWon'], df['l_svpt'])
+    l_return_win_pct = _safe_pct(df['w_svpt'] - df['w_1stWon'] - df['w_2ndWon'], df['w_svpt'])
+
+    w_df = pd.DataFrame({
+        'match_uid': df['match_uid'], 'player_id': df['winner_id'],
+        'tourney_date': df['tourney_date'], '_round_ord': df['_round_ord'],
+        'bp_saved_pct': w_bp_saved_pct, 'return_win_pct': w_return_win_pct,
+    })
+    w_df['is_winner'] = 1
+
+    l_df = pd.DataFrame({
+        'match_uid': df['match_uid'], 'player_id': df['loser_id'],
+        'tourney_date': df['tourney_date'], '_round_ord': df['_round_ord'],
+        'bp_saved_pct': l_bp_saved_pct, 'return_win_pct': l_return_win_pct,
+    })
+    l_df['is_winner'] = 0
+
+    long_df = pd.concat([w_df, l_df]).sort_values(['player_id', 'tourney_date', '_round_ord']).reset_index(drop=True)
+
+    for stat in ('bp_saved_pct', 'return_win_pct'):
+        long_df[f'rolling_avg_{stat}'] = long_df.groupby('player_id')[stat].transform(
+            lambda x: x.rolling(window=window, min_periods=1).mean().shift(1)
+        )
+
+    w_long = long_df[long_df['is_winner'] == 1][['match_uid', 'rolling_avg_bp_saved_pct', 'rolling_avg_return_win_pct']]
+    l_long = long_df[long_df['is_winner'] == 0][['match_uid', 'rolling_avg_bp_saved_pct', 'rolling_avg_return_win_pct']]
+
+    df = df.merge(w_long, on='match_uid', how='left')
+    df = df.rename(columns={
+        'rolling_avg_bp_saved_pct': 'p1_rolling_avg_bp_saved_pct',
+        'rolling_avg_return_win_pct': 'p1_rolling_avg_return_win_pct',
+    })
+
+    df = df.merge(l_long, on='match_uid', how='left')
+    df = df.rename(columns={
+        'rolling_avg_bp_saved_pct': 'p2_rolling_avg_bp_saved_pct',
+        'rolling_avg_return_win_pct': 'p2_rolling_avg_return_win_pct',
+    })
+
+    df = df.drop(columns=['match_uid', '_round_ord'])
+    df = df.fillna(0)  # sin historial previo o partidos sin estadísticas de saque
+
+    latest_return_stats = {}
+    for player_id in long_df['player_id'].unique():
+        player_df = long_df[long_df['player_id'] == player_id].sort_values(['tourney_date', '_round_ord'], ascending=False)
+        if not player_df.empty:
+            row = player_df.iloc[0]
+            latest_return_stats[player_id] = {
+                'rolling_avg_bp_saved_pct': row['rolling_avg_bp_saved_pct'] if pd.notna(row['rolling_avg_bp_saved_pct']) else 0,
+                'rolling_avg_return_win_pct': row['rolling_avg_return_win_pct'] if pd.notna(row['rolling_avg_return_win_pct']) else 0,
+            }
+        else:
+            latest_return_stats[player_id] = {'rolling_avg_bp_saved_pct': 0, 'rolling_avg_return_win_pct': 0}
+
+    return df, latest_return_stats
+
+
 def compute_fatigue_features(df_matches, window_days=14):
     """
     Calcula, por partido y jugador, días desde su último partido registrado
@@ -199,6 +326,39 @@ def compute_fatigue_features(df_matches, window_days=14):
         }
 
     return df, latest_fatigue
+
+
+def compute_h2h_features(df_matches):
+    """
+    Historial head-to-head entre cada par de jugadores: cuántas veces p1 le
+    había ganado a p2 y viceversa ANTES del partido actual (sin fuga —
+    el resultado del propio partido nunca se cuenta a favor de nadie).
+    """
+    df = df_matches.copy().reset_index(drop=True)
+    if 'round' in df.columns:
+        df['_round_ord'] = df['round'].map(ROUND_ORDER).fillna(-1)
+        df = df.sort_values(['tourney_date', '_round_ord']).drop(columns=['_round_ord'])
+    else:
+        df = df.sort_values('tourney_date')
+    df = df.reset_index(drop=True)
+
+    h2h_dict: dict[int, dict[int, int]] = {}  # player_id -> {opponent_id: victorias acumuladas}
+    winner_h2h_wins = []
+    loser_h2h_wins = []
+
+    for _, row in df.iterrows():
+        p1 = row['winner_id']
+        p2 = row['loser_id']
+
+        winner_h2h_wins.append(h2h_dict.get(p1, {}).get(p2, 0))
+        loser_h2h_wins.append(h2h_dict.get(p2, {}).get(p1, 0))
+
+        h2h_dict.setdefault(p1, {})
+        h2h_dict[p1][p2] = h2h_dict[p1].get(p2, 0) + 1
+
+    df['winner_h2h_wins'] = winner_h2h_wins
+    df['loser_h2h_wins'] = loser_h2h_wins
+    return df, h2h_dict
 
 
 def encode_surface(df):
@@ -272,8 +432,11 @@ def prepare_features_for_training(raw_df):
 
     # 2. Ingeniería de características dinámicas (Elo, Rolling Stats, Fatiga)
     df, final_elo_state = calculate_elo_ratings(df)
+    df, final_surface_elo_state = calculate_surface_elo_ratings(df)
     df, final_rolling_stats_state = create_rolling_stats_for_all_matches(df)
+    df, final_return_stats_state = create_return_stats_for_all_matches(df)
     df, final_fatigue_state = compute_fatigue_features(df)
+    df, final_h2h_state = compute_h2h_features(df)
 
     # 3. Codificación de superficie
     df = encode_surface(df)
@@ -312,7 +475,13 @@ def prepare_features_for_training(raw_df):
             'id': player_id,
             **player_info,
             'elo': final_elo_state.get(player_id, 1500),
+            'elo_by_surface': {
+                surface: final_surface_elo_state.get((player_id, surface), 1500)
+                for surface in ('Hard', 'Clay', 'Grass', 'Carpet')
+            },
+            'h2h_wins': final_h2h_state.get(player_id, {}),
             **final_rolling_stats_state.get(player_id, {'rolling_avg_ace': 0, 'rolling_avg_df': 0, 'rolling_avg_1stWon': 0}),
+            **final_return_stats_state.get(player_id, {'rolling_avg_bp_saved_pct': 0, 'rolling_avg_return_win_pct': 0}),
             **final_fatigue_state.get(player_id, {'days_since_last_match': 365, 'matches_last_14d': 0}),
         }
 
@@ -332,6 +501,11 @@ def get_features_for_single_prediction(
     best_of: 3 o 5 sets
     tourney_level: nivel ATP (G, M, A, C, F, D)
     """
+    p1_surface_elo = player1_profile.get('elo_by_surface', {}).get(match_surface, player1_profile['elo'])
+    p2_surface_elo = player2_profile.get('elo_by_surface', {}).get(match_surface, player2_profile['elo'])
+    p1_h2h_wins = player1_profile.get('h2h_wins', {}).get(player2_profile['id'], 0)
+    p2_h2h_wins = player2_profile.get('h2h_wins', {}).get(player1_profile['id'], 0)
+
     features_row = {
         'p1_id': player1_profile['id'],
         'p1_name': player1_profile['name'],
@@ -342,11 +516,15 @@ def get_features_for_single_prediction(
         'p1_rank': player1_profile['rank'],
         'p1_rank_points': player1_profile.get('rank_points', 0), # Use .get for optional keys
         'p1_elo_before_match': player1_profile['elo'],
+        'p1_surface_elo_before_match': p1_surface_elo,
         'p1_rolling_avg_ace': player1_profile['rolling_avg_ace'],
         'p1_rolling_avg_df': player1_profile['rolling_avg_df'],
         'p1_rolling_avg_1stWon': player1_profile['rolling_avg_1stWon'],
+        'p1_rolling_avg_bp_saved_pct': player1_profile.get('rolling_avg_bp_saved_pct', 0),
+        'p1_rolling_avg_return_win_pct': player1_profile.get('rolling_avg_return_win_pct', 0),
         'p1_days_since_last_match': player1_profile.get('days_since_last_match', 365),
         'p1_matches_last_14d': player1_profile.get('matches_last_14d', 0),
+        'p1_h2h_wins': p1_h2h_wins,
 
         'p2_id': player2_profile['id'],
         'p2_name': player2_profile['name'],
@@ -357,11 +535,15 @@ def get_features_for_single_prediction(
         'p2_rank': player2_profile['rank'],
         'p2_rank_points': player2_profile.get('rank_points', 0),
         'p2_elo_before_match': player2_profile['elo'],
+        'p2_surface_elo_before_match': p2_surface_elo,
         'p2_rolling_avg_ace': player2_profile['rolling_avg_ace'],
         'p2_rolling_avg_df': player2_profile['rolling_avg_df'],
         'p2_rolling_avg_1stWon': player2_profile['rolling_avg_1stWon'],
+        'p2_rolling_avg_bp_saved_pct': player2_profile.get('rolling_avg_bp_saved_pct', 0),
+        'p2_rolling_avg_return_win_pct': player2_profile.get('rolling_avg_return_win_pct', 0),
         'p2_days_since_last_match': player2_profile.get('days_since_last_match', 365),
         'p2_matches_last_14d': player2_profile.get('matches_last_14d', 0),
+        'p2_h2h_wins': p2_h2h_wins,
 
         'surface': match_surface,
         'best_of': best_of,

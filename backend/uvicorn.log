@@ -1,1 +1,121 @@
 Acceso denegado.
+INFO:     Started server process [40832]
+INFO:     Waiting for application startup.
+2026-08-06 18:03:04,117 [INFO] app.main: Iniciando TennisAI API…
+2026-08-06 18:03:04,117 [INFO] app.state: Cargando modelo desde /home/juanmcr/Desktop/_Atp/backend/models/tennis_model.pkl
+2026-08-06 18:03:04,979 [INFO] app.state: Cargando perfiles desde /home/juanmcr/Desktop/_Atp/backend/models/player_profiles.pkl
+2026-08-06 18:03:05,041 [INFO] app.state: Recursos cargados: 1472 jugadores, 22 features
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:40094 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40098 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59446 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41186 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45696 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38374 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60976 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46494 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45526 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48652 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55350 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45116 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40560 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54690 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38208 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56660 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58000 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39848 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43610 - "GET /health HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-08-06 18:11:31,029 [INFO] app.main: Apagando TennisAI API.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [40832]
+INFO:     Started server process [44624]
+INFO:     Waiting for application startup.
+2026-08-06 18:11:58,555 [INFO] app.main: Iniciando TennisAI API…
+2026-08-06 18:11:58,555 [INFO] app.state: Cargando modelo desde /home/juanmcr/Desktop/_Atp/backend/models/tennis_model.pkl
+2026-08-06 18:11:59,306 [INFO] app.state: Cargando perfiles desde /home/juanmcr/Desktop/_Atp/backend/models/player_profiles.pkl
+2026-08-06 18:11:59,370 [INFO] app.state: Recursos cargados: 1472 jugadores, 24 features
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:59896 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54692 - "GET /health HTTP/1.1" 200 OK
+2026-08-06 18:12:08,140 [INFO] httpx: HTTP Request: GET https://api.the-odds-api.com/v4/sports?apiKey=3febca5835f7e027bed66acc109256fe "HTTP/1.1 200 OK"
+2026-08-06 18:12:08,752 [INFO] httpx: HTTP Request: GET https://api.the-odds-api.com/v4/sports/tennis_atp_canadian_open/odds?apiKey=3febca5835f7e027bed66acc109256fe&regions=eu%2Cuk&markets=h2h&oddsFormat=decimal "HTTP/1.1 200 OK"
+[odds_client] cuota The Odds API: usados=56 (este request costó 0), restantes=444
+[odds_client] cuota The Odds API: usados=58 (este request costó 2), restantes=442
+INFO:     127.0.0.1:54694 - "GET /matches/today?refresh=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52852 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32992 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56696 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38782 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45478 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:42018 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59454 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55120 - "GET /health HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-08-06 18:16:14,353 [INFO] app.main: Apagando TennisAI API.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [44624]
+INFO:     Started server process [46901]
+INFO:     Waiting for application startup.
+2026-08-06 18:16:58,873 [INFO] app.main: Iniciando TennisAI API…
+2026-08-06 18:16:58,873 [INFO] app.state: Cargando modelo desde /home/juanmcr/Desktop/_Atp/backend/models/tennis_model.pkl
+2026-08-06 18:16:59,626 [INFO] app.state: Cargando perfiles desde /home/juanmcr/Desktop/_Atp/backend/models/player_profiles.pkl
+2026-08-06 18:16:59,724 [INFO] app.state: Recursos cargados: 1472 jugadores, 26 features
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:47860 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57224 - "GET /health HTTP/1.1" 200 OK
+2026-08-06 18:17:06,985 [INFO] httpx: HTTP Request: GET https://api.the-odds-api.com/v4/sports?apiKey=3febca5835f7e027bed66acc109256fe "HTTP/1.1 200 OK"
+2026-08-06 18:17:07,611 [INFO] httpx: HTTP Request: GET https://api.the-odds-api.com/v4/sports/tennis_atp_canadian_open/odds?apiKey=3febca5835f7e027bed66acc109256fe&regions=eu%2Cuk&markets=h2h&oddsFormat=decimal "HTTP/1.1 200 OK"
+[odds_client] cuota The Odds API: usados=58 (este request costó 0), restantes=442
+[odds_client] cuota The Odds API: usados=60 (este request costó 2), restantes=440
+INFO:     127.0.0.1:57236 - "GET /matches/today?refresh=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45842 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36264 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36860 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54018 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54268 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39408 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45542 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46652 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43012 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37786 - "GET /health HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-08-06 18:22:15,283 [INFO] app.main: Apagando TennisAI API.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [46901]
+INFO:     Started server process [49082]
+INFO:     Waiting for application startup.
+2026-08-06 18:22:22,429 [INFO] app.main: Iniciando TennisAI API…
+2026-08-06 18:22:22,429 [INFO] app.state: Cargando modelo desde /home/juanmcr/Desktop/_Atp/backend/models/tennis_model.pkl
+2026-08-06 18:22:23,297 [INFO] app.state: Cargando perfiles desde /home/juanmcr/Desktop/_Atp/backend/models/player_profiles.pkl
+2026-08-06 18:22:23,450 [INFO] app.state: Recursos cargados: 1472 jugadores, 30 features
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:39194 - "GET /health HTTP/1.1" 200 OK
+2026-08-06 18:22:29,311 [INFO] httpx: HTTP Request: GET https://api.the-odds-api.com/v4/sports?apiKey=3febca5835f7e027bed66acc109256fe "HTTP/1.1 200 OK"
+2026-08-06 18:22:29,887 [INFO] httpx: HTTP Request: GET https://api.the-odds-api.com/v4/sports/tennis_atp_canadian_open/odds?apiKey=3febca5835f7e027bed66acc109256fe&regions=eu%2Cuk&markets=h2h&oddsFormat=decimal "HTTP/1.1 200 OK"
+[odds_client] cuota The Odds API: usados=60 (este request costó 0), restantes=440
+[odds_client] cuota The Odds API: usados=62 (este request costó 2), restantes=438
+INFO:     127.0.0.1:39010 - "GET /matches/today?refresh=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45386 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36160 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55710 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43576 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45990 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41170 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36298 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46276 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36730 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51484 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46108 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54132 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57772 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52220 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41222 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46264 - "GET /health HTTP/1.1" 200 OK
