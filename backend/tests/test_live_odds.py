@@ -130,6 +130,29 @@ def test_resolve_player_id_queries_by_last_word_for_compound_surname(monkeypatch
     assert seen_queries == ["Minaur"]
 
 
+def test_resolve_player_id_falls_back_to_middle_surname_when_base_has_fewer_apellidos(monkeypatch):
+    """La cuota trae 'Daniel Merida Aguilar' pero el dataset ATP solo tiene
+    'Daniel Merida' (un apellido). La búsqueda por última palabra ('Aguilar')
+    no matchea nada propio; el fallback prueba 'Merida' y sí lo encuentra."""
+    responses = {
+        "Aguilar": [
+            {"id": 104477, "name": "Jorge Aguilar", "rank": 196},
+            {"id": 212051, "name": "Joaquin  Aguilar Cardozo ", "rank": 1109},
+        ],
+        "Merida": [{"id": 900043, "name": "Daniel Merida", "rank": 82}],
+    }
+    seen_queries = []
+
+    def fake_get(url, params=None, timeout=None):
+        seen_queries.append(params["q"])
+        return SimpleNamespace(json=lambda: responses.get(params["q"], []), raise_for_status=lambda: None)
+
+    monkeypatch.setattr(fetch_live_odds.httpx, "get", fake_get)
+    player = fetch_live_odds.resolve_player_id("Daniel Merida Aguilar")
+    assert player["id"] == 900043
+    assert seen_queries == ["Aguilar", "Merida"]
+
+
 def test_resolve_player_id_returns_none_without_match(monkeypatch):
     monkeypatch.setattr(
         fetch_live_odds.httpx, "get",
@@ -153,16 +176,62 @@ def test_build_log_rows_end_to_end_with_mocks(monkeypatch):
         },
     )
 
-    rows = fetch_live_odds.build_log_rows(_event(), "tennis_atp_wimbledon", {})
+    rows = fetch_live_odds.build_log_rows(
+        _event(), "tennis_atp_wimbledon", {},
+        model_version={"model_trained_at": "2026-08-06T23:21:12+00:00", "model_git_commit": "abc123"},
+    )
     assert len(rows) == 1
     row = rows[0]
     assert row["book"] == "pinnacle"
     assert row["p1_id"] == 104925 and row["p2_id"] == 207989
+    assert row["model_trained_at"] == "2026-08-06T23:21:12+00:00"
+    assert row["model_git_commit"] == "abc123"
     assert row["implied_p1"] == pytest.approx(1 / 1.65)
     assert row["edge_p1"] == pytest.approx(0.7 - 1 / 1.65)
 
 
-# --- settle_live_odds.determine_winner_side ------------------------------
+def test_build_log_rows_model_version_defaults_to_none_when_omitted(monkeypatch):
+    monkeypatch.setattr(
+        fetch_live_odds, "resolve_player_id",
+        lambda name: {"id": 104925, "name": "Novak Djokovic"} if "Djokovic" in name
+        else {"id": 207989, "name": "Carlos Alcaraz"},
+    )
+    monkeypatch.setattr(
+        fetch_live_odds, "predict",
+        lambda p1_id, p2_id, surface: {
+            "player1_id": p1_id, "player2_id": p2_id,
+            "player1_name": "Novak Djokovic", "player2_name": "Carlos Alcaraz",
+            "player1_win_probability": 0.7, "player2_win_probability": 0.3,
+        },
+    )
+
+    rows = fetch_live_odds.build_log_rows(_event(), "tennis_atp_wimbledon", {})
+    assert rows[0]["model_trained_at"] is None
+    assert rows[0]["model_git_commit"] is None
+
+
+def test_fetch_model_version_reads_metadata(monkeypatch):
+    def fake_get(url, timeout=None):
+        assert url.endswith("/model/info")
+        return SimpleNamespace(
+            raise_for_status=lambda: None,
+            json=lambda: {"metadata": {"trained_at": "2026-08-06T23:21:12+00:00", "git_commit": "abc123", "accuracy": 0.66}},
+        )
+
+    monkeypatch.setattr(fetch_live_odds.httpx, "get", fake_get)
+    version = fetch_live_odds.fetch_model_version()
+    assert version == {"model_trained_at": "2026-08-06T23:21:12+00:00", "model_git_commit": "abc123"}
+
+
+def test_fetch_model_version_returns_nones_on_http_error(monkeypatch):
+    def fake_get(url, timeout=None):
+        raise fetch_live_odds.httpx.HTTPError("boom")
+
+    monkeypatch.setattr(fetch_live_odds.httpx, "get", fake_get)
+    assert fetch_live_odds.fetch_model_version() == {"model_trained_at": None, "model_git_commit": None}
+
+
+# --- odds_client.determine_winner_side ------------------------------------
 
 def _score_event(**overrides):
     event = {
@@ -180,7 +249,7 @@ def _score_event(**overrides):
 
 
 def test_determine_winner_side_home_wins():
-    assert settle_live_odds.determine_winner_side(_score_event()) == "home"
+    assert odds_client.determine_winner_side(_score_event()) == "home"
 
 
 def test_determine_winner_side_away_wins():
@@ -188,11 +257,11 @@ def test_determine_winner_side_away_wins():
         {"name": "Novak Djokovic", "score": "0"},
         {"name": "Carlos Alcaraz", "score": "2"},
     ])
-    assert settle_live_odds.determine_winner_side(event) == "away"
+    assert odds_client.determine_winner_side(event) == "away"
 
 
 def test_determine_winner_side_not_completed():
-    assert settle_live_odds.determine_winner_side(_score_event(completed=False)) is None
+    assert odds_client.determine_winner_side(_score_event(completed=False)) is None
 
 
 def test_determine_winner_side_tied_or_missing_scores():
@@ -200,8 +269,8 @@ def test_determine_winner_side_tied_or_missing_scores():
         {"name": "Novak Djokovic", "score": "1"},
         {"name": "Carlos Alcaraz", "score": "1"},
     ])
-    assert settle_live_odds.determine_winner_side(tied) is None
-    assert settle_live_odds.determine_winner_side(_score_event(scores=[])) is None
+    assert odds_client.determine_winner_side(tied) is None
+    assert odds_client.determine_winner_side(_score_event(scores=[])) is None
 
 
 # --- settle_live_odds.settle_row -----------------------------------------

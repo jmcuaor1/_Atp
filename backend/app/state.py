@@ -7,6 +7,7 @@ from typing import Any
 import joblib
 
 from app.config import ALLOW_START_WITHOUT_MODEL, MODEL_PATH, PLAYER_PROFILES_PATH
+from app.services import reliability
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ class AppState:
     model_features: list[str] = field(default_factory=list)
     player_profiles: dict[int, dict[str, Any]] = field(default_factory=dict)
     model_metadata: dict[str, Any] = field(default_factory=dict)
+    recent_match_counts: dict[int, int] = field(default_factory=dict)
 
     @property
     def is_ready(self) -> bool:
@@ -78,6 +80,14 @@ def load_resources() -> None:
     logger.info("Cargando perfiles desde %s", PLAYER_PROFILES_PATH)
     raw_profiles = joblib.load(PLAYER_PROFILES_PATH)
     app_state.player_profiles = _normalize_profiles(raw_profiles)
+
+    # Informativo, no crítico: si data/raw/ no está disponible (ej. un
+    # clone sin los CSVs históricos) no debe tumbar el arranque de la API.
+    try:
+        app_state.recent_match_counts = reliability.compute_recent_match_counts()
+    except Exception:
+        logger.exception("No se pudo calcular recent_match_counts, queda vacío")
+        app_state.recent_match_counts = {}
 
     logger.info(
         "Recursos cargados: %d jugadores, %d features",

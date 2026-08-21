@@ -57,6 +57,20 @@ export interface TodayMatch {
   predicted_winner_name: string | null
   resolved: boolean
   note: string | null
+  book: string | null
+  player1_odds: number | null
+  player2_odds: number | null
+  player1_implied_probability: number | null
+  player2_implied_probability: number | null
+  player1_edge: number | null
+  player2_edge: number | null
+  value_bet_player_name: string | null
+  suspicious_edge: boolean
+  player1_matches_played: number | null
+  player2_matches_played: number | null
+  player1_low_sample: boolean
+  player2_low_sample: boolean
+  low_sample_warning: boolean
 }
 
 export interface TodayMatchesResponse {

@@ -10,6 +10,7 @@ import odds_client
 
 from app.schemas.matches import TodayMatch, TodayMatchesResponse
 from app.schemas.predict import PlayerInput, PredictionRequest
+from app.services import reliability
 from app.services.players import search_players
 from app.services.prediction import PredictionError, predict_match_sync
 from app.state import app_state
@@ -43,11 +44,26 @@ def _resolve_player(full_name: str) -> dict | None:
     last, initial = _normalize_full_name(full_name)
     if not last:
         return None
-    query = full_name.strip().split()[-1]
+    parts = full_name.strip().split()
+    query = parts[-1]
     for candidate in search_players(query, limit=20):
         cand_last, cand_initial = _normalize_full_name(candidate.name)
         if cand_last == last and cand_initial == initial:
             return {"id": candidate.id, "name": candidate.name}
+
+    # Fallback: la cuota trae más apellidos que nuestra base (ej. "Daniel
+    # Merida Aguilar" en The Odds API vs "Daniel Merida" en el dataset ATP).
+    # Ahí `last` (todos los apellidos juntos) nunca va a matchear contra el
+    # apellido único guardado, así que se prueba cada apellido intermedio
+    # por separado como si fuera el apellido completo del jugador.
+    for token in parts[1:-1]:
+        token_last, _ = _normalize_full_name(token)
+        if not token_last:
+            continue
+        for candidate in search_players(token, limit=20):
+            cand_last, cand_initial = _normalize_full_name(candidate.name)
+            if cand_last == token_last and cand_initial == initial:
+                return {"id": candidate.id, "name": candidate.name}
     return None
 
 
@@ -63,6 +79,21 @@ def _guess_surface(sport_key: str) -> str:
     return "Hard"
 
 
+# Orden de preferencia cuando el evento trae cuota de más de un book de la
+# whitelist: betsson primero porque es el único de los dos con licencia
+# Coljuegos (apostable en Colombia); pinnacle queda como referencia de
+# cuota "justa" si no hay betsson para ese partido (ver src/odds_client.py).
+_BOOK_PREFERENCE = ("betsson", "pinnacle")
+
+
+def _pick_book_odds(event: dict) -> dict | None:
+    rows = {row["book"]: row for row in odds_client.extract_book_odds(event)}
+    for book in _BOOK_PREFERENCE:
+        if book in rows:
+            return rows[book]
+    return None
+
+
 def _model_data_cutoff() -> str | None:
     date_range = app_state.model_metadata.get("date_range")
     if isinstance(date_range, (list, tuple)) and len(date_range) == 2:
@@ -70,9 +101,20 @@ def _model_data_cutoff() -> str | None:
     return None
 
 
+def _has_started(commence_time: str | None, now: datetime) -> bool:
+    if not commence_time:
+        return False
+    try:
+        start = datetime.fromisoformat(commence_time.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return start <= now
+
+
 def _fetch_today_matches() -> TodayMatchesResponse:
     api_key = odds_client.get_api_key()
     sport_keys = odds_client.list_active_tennis_sport_keys(api_key)
+    now = datetime.now(timezone.utc)
 
     matches: list[TodayMatch] = []
     for sport_key in sport_keys:
@@ -110,6 +152,40 @@ def _fetch_today_matches() -> TodayMatchesResponse:
                     entry.player2_win_probability = prediction.player2_win_probability
                     entry.predicted_winner_name = prediction.predicted_winner_name
                     entry.resolved = True
+
+                    counts = app_state.recent_match_counts
+                    entry.player1_matches_played = counts.get(p1["id"], 0)
+                    entry.player2_matches_played = counts.get(p2["id"], 0)
+                    entry.player1_low_sample = reliability.is_low_sample(p1["id"], counts)
+                    entry.player2_low_sample = reliability.is_low_sample(p2["id"], counts)
+                    entry.low_sample_warning = entry.player1_low_sample or entry.player2_low_sample
+
+                    if _has_started(entry.commence_time, now):
+                        # El partido ya arrancó: The Odds API sigue devolviendo
+                        # cuotas h2h mientras el book las ofrezca en vivo, y esas
+                        # ya no son pre-partido — reflejan el marcador real. El
+                        # modelo solo predice pre-partido, así que comparar
+                        # ambas cosas da un "edge" artificial. No calculamos
+                        # edge en ese caso.
+                        entry.note = "Partido en curso o finalizado: cuota en vivo, no comparable con la predicción pre-partido."
+                        matches.append(entry)
+                        continue
+
+                    book_row = _pick_book_odds(event)
+                    if book_row is not None:
+                        entry.book = book_row["book"]
+                        entry.player1_odds = book_row["odds_home"]
+                        entry.player2_odds = book_row["odds_away"]
+                        entry.player1_implied_probability = 1 / book_row["odds_home"]
+                        entry.player2_implied_probability = 1 / book_row["odds_away"]
+                        entry.player1_edge = entry.player1_win_probability - entry.player1_implied_probability
+                        entry.player2_edge = entry.player2_win_probability - entry.player2_implied_probability
+                        best_edge = max(entry.player1_edge, entry.player2_edge)
+                        if best_edge > 0:
+                            entry.value_bet_player_name = (
+                                entry.player1_name if entry.player1_edge > entry.player2_edge else entry.player2_name
+                            )
+                            entry.suspicious_edge = best_edge > odds_client.SUSPICIOUS_EDGE_THRESHOLD
                 except PredictionError as exc:
                     entry.note = exc.message
             else:

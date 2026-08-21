@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { AlertTriangle, RefreshCw, Trophy } from 'lucide-react'
+import { AlertTriangle, Gauge, RefreshCw, Trophy } from 'lucide-react'
 import { fetchTodayMatches } from '@/lib/api'
 import type { TodayMatch, TodayMatchesResponse } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -131,6 +131,7 @@ export function TodayMatches() {
 
 function MatchCard({ match }: { match: TodayMatch }) {
   const p1Wins = match.resolved && (match.player1_win_probability ?? 0) >= (match.player2_win_probability ?? 0)
+  const hasValueBet = match.resolved && match.value_bet_player_name !== null
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
@@ -149,12 +150,45 @@ function MatchCard({ match }: { match: TodayMatch }) {
                 name={match.player1_name}
                 probability={match.player1_win_probability!}
                 isWinner={p1Wins}
+                odds={match.player1_odds}
+                edge={match.player1_edge}
+                matchesPlayed={match.player1_matches_played}
+                lowSample={match.player1_low_sample}
               />
               <PlayerRow
                 name={match.player2_name}
                 probability={match.player2_win_probability!}
                 isWinner={!p1Wins}
+                odds={match.player2_odds}
+                edge={match.player2_edge}
+                matchesPlayed={match.player2_matches_played}
+                lowSample={match.player2_low_sample}
               />
+              {match.low_sample_warning && (
+                <LowSampleWarning match={match} />
+              )}
+              {hasValueBet && (
+                <div
+                  className={cn(
+                    'flex items-start gap-2 rounded-lg border p-2.5 text-xs',
+                    match.suspicious_edge
+                      ? 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                      : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+                  )}
+                >
+                  <span className="mt-0.5 shrink-0">{match.suspicious_edge ? '⚠️' : '💰'}</span>
+                  <p>
+                    Valor de apuesta: <strong>{match.value_bet_player_name}</strong> en {match.book}.
+                    {match.suspicious_edge && (
+                      <>
+                        {' '}
+                        Edge muy alto — antes de apostar, chequeá a mano si hay lesión, retiro o baja
+                        reciente que el modelo no vio.
+                      </>
+                    )}
+                  </p>
+                </div>
+              )}
             </>
           ) : (
             <div className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -173,14 +207,41 @@ function MatchCard({ match }: { match: TodayMatch }) {
   )
 }
 
+function LowSampleWarning({ match }: { match: TodayMatch }) {
+  const names = [
+    match.player1_low_sample ? match.player1_name : null,
+    match.player2_low_sample ? match.player2_name : null,
+  ].filter((name): name is string => name !== null)
+  const verb = names.length > 1 ? 'tienen' : 'tiene'
+
+  return (
+    <div className="flex items-start gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 p-2.5 text-xs text-sky-600 dark:text-sky-400">
+      <Gauge className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <p>
+        Predicción con menos respaldo: <strong>{names.join(' y ')}</strong> {verb} poco historial
+        reciente en la base del modelo — la predicción es menos confiable que en un partido con ambos
+        jugadores bien muestreados.
+      </p>
+    </div>
+  )
+}
+
 function PlayerRow({
   name,
   probability,
   isWinner,
+  odds,
+  edge,
+  matchesPlayed,
+  lowSample,
 }: {
   name: string
   probability: number
   isWinner: boolean
+  odds?: number | null
+  edge?: number | null
+  matchesPlayed?: number | null
+  lowSample?: boolean
 }) {
   const percent = probability * 100
   return (
@@ -189,8 +250,27 @@ function PlayerRow({
         <span className={cn('font-medium', isWinner ? 'text-primary' : 'text-muted-foreground')}>
           {name}
           {isWinner && <Trophy className="ml-1.5 inline h-3.5 w-3.5 text-primary" />}
+          {lowSample && matchesPlayed != null && (
+            <span
+              className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] font-normal text-sky-600 dark:text-sky-400"
+              title="Pocos partidos recientes en la base del modelo"
+            >
+              <Gauge className="h-3 w-3" />
+              {matchesPlayed}
+            </span>
+          )}
         </span>
-        <span className="font-mono font-semibold">{formatPercent(probability)}</span>
+        <span className="flex items-center gap-2">
+          {odds != null && (
+            <span className="font-mono text-xs text-muted-foreground">
+              cuota {odds.toFixed(2)}
+              {edge != null && edge > 0 && (
+                <span className="ml-1 text-emerald-600 dark:text-emerald-400">+{(edge * 100).toFixed(1)}%</span>
+              )}
+            </span>
+          )}
+          <span className="font-mono font-semibold">{formatPercent(probability)}</span>
+        </span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
         <motion.div

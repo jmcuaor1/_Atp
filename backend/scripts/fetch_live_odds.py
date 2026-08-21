@@ -64,7 +64,8 @@ def resolve_player_id(full_name: str) -> dict | None:
     # espacios, p.ej. "deminaur") o nunca matchea apellidos compuestos como
     # "Alex De Minaur" o "Botic Van De Zandschulp". Se busca por la última
     # palabra del nombre en cambio, y se desambigua después con `last`/`initial`.
-    query = full_name.strip().split()[-1]
+    parts = full_name.strip().split()
+    query = parts[-1]
     resp = httpx.get(
         f"{API_BASE_URL}/players/search", params={"q": query, "limit": 20}, timeout=HTTP_TIMEOUT,
     )
@@ -73,6 +74,24 @@ def resolve_player_id(full_name: str) -> dict | None:
         cand_last, cand_initial = normalize_full_name(candidate["name"])
         if cand_last == last and cand_initial == initial:
             return candidate
+
+    # Fallback: la cuota trae más apellidos que nuestra base (ej. "Daniel
+    # Merida Aguilar" en The Odds API vs "Daniel Merida" en el dataset ATP).
+    # Ahí `last` (todos los apellidos juntos) nunca matchea contra el
+    # apellido único guardado, así que se prueba cada apellido intermedio
+    # por separado como si fuera el apellido completo del jugador.
+    for token in parts[1:-1]:
+        token_last, _ = normalize_full_name(token)
+        if not token_last:
+            continue
+        resp = httpx.get(
+            f"{API_BASE_URL}/players/search", params={"q": token, "limit": 20}, timeout=HTTP_TIMEOUT,
+        )
+        resp.raise_for_status()
+        for candidate in resp.json():
+            cand_last, cand_initial = normalize_full_name(candidate["name"])
+            if cand_last == token_last and cand_initial == initial:
+                return candidate
     return None
 
 
@@ -99,7 +118,28 @@ def predict(p1_id: int, p2_id: int, surface: str) -> dict | None:
     return resp.json()
 
 
-def build_log_rows(event: dict, sport_key: str, prediction_cache: dict) -> list[dict]:
+def fetch_model_version() -> dict:
+    """git_commit/trained_at del modelo que está sirviendo la API ahora
+    mismo. Se guarda en cada fila del log para poder diagnosticar en
+    segundos si un cambio de predicción entre dos corridas viene de un
+    reentrenamiento real (ver Fase 5b: agregar features nuevas hizo que
+    varias predicciones de esa noche saltaran 20-60 puntos porcentuales de
+    un momento a otro, y sin esto hubo que reconstruir la cronología a mano
+    cruzando el log de cuotas contra `git log`)."""
+    try:
+        resp = httpx.get(f"{API_BASE_URL}/model/info", timeout=HTTP_TIMEOUT)
+        resp.raise_for_status()
+        metadata = resp.json().get("metadata") or {}
+    except httpx.HTTPError as exc:
+        print(f"   [fetch_model_version] no se pudo consultar /model/info: {exc}")
+        metadata = {}
+    return {
+        "model_trained_at": metadata.get("trained_at"),
+        "model_git_commit": metadata.get("git_commit"),
+    }
+
+
+def build_log_rows(event: dict, sport_key: str, prediction_cache: dict, model_version: dict | None = None) -> list[dict]:
     book_rows = odds_client.extract_book_odds(event)
     if not book_rows:
         return []
@@ -119,12 +159,15 @@ def build_log_rows(event: dict, sport_key: str, prediction_cache: dict) -> list[
         return []
 
     fetched_at = datetime.now(timezone.utc).isoformat()
+    model_version = model_version or {}
     rows = []
     for book_row in book_rows:
         implied_p1 = 1 / book_row["odds_home"]
         implied_p2 = 1 / book_row["odds_away"]
         rows.append({
             "fetched_at": fetched_at,
+            "model_trained_at": model_version.get("model_trained_at"),
+            "model_git_commit": model_version.get("model_git_commit"),
             "event_id": event["id"],
             "sport_key": sport_key,
             "commence_time": event.get("commence_time"),
@@ -157,6 +200,9 @@ def main():
         return
     print(f"   {len(sport_keys)} torneo(s) activo(s): {sport_keys}")
 
+    model_version = fetch_model_version()
+    print(f"   Modelo sirviendo: git {model_version['model_git_commit']}, entrenado {model_version['model_trained_at']}")
+
     all_rows: list[dict] = []
     for sport_key in sport_keys:
         print(f"\n2. Trayendo cuotas para {sport_key}...")
@@ -165,10 +211,10 @@ def main():
 
         prediction_cache: dict[tuple[int, int], dict | None] = {}
         for event in events:
-            all_rows.extend(build_log_rows(event, sport_key, prediction_cache))
+            all_rows.extend(build_log_rows(event, sport_key, prediction_cache, model_version))
 
     if not all_rows:
-        print("\nNo se generó ninguna fila (sin cuotas de pinnacle/bet365 en estos eventos, o jugadores no resueltos vía /players/search).")
+        print("\nNo se generó ninguna fila (sin cuotas de pinnacle/betsson en estos eventos, o jugadores no resueltos vía /players/search).")
         return
 
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)

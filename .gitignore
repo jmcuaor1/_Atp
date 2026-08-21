@@ -36,6 +36,12 @@ backend/data/processed/retrain_model_cron.log
 # uvicorn corriendo local para el cron de Fase 7
 backend/uvicorn.log
 
+# Fase 8: acierto de pronóstico + disciplina de apostador profesional (runtime, local)
+backend/data/processed/prediction_accuracy_log.csv
+backend/data/processed/settle_daily_cron.log
+backend/data/processed/bet_log.jsonl
+backend/data/processed/bankroll_ledger.csv
+
 # Node (Frontend)
 node_modules/
 .next/

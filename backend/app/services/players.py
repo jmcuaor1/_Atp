@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.schemas.players import PlayerProfileResponse, PlayerSearchResult
+from app.services import reliability
 from app.state import app_state
 
 
@@ -35,6 +36,7 @@ def get_player_profile(player_id: int) -> PlayerProfileResponse | None:
     if profile is None:
         return None
 
+    matches_played = app_state.recent_match_counts.get(player_id, 0)
     return PlayerProfileResponse(
         id=player_id,
         name=str(profile.get("name", f"Jugador {player_id}")),
@@ -48,6 +50,8 @@ def get_player_profile(player_id: int) -> PlayerProfileResponse | None:
         rolling_avg_ace=float(profile.get("rolling_avg_ace", 0)),
         rolling_avg_df=float(profile.get("rolling_avg_df", 0)),
         rolling_avg_1stWon=float(profile.get("rolling_avg_1stWon", 0)),
+        recent_matches_played=matches_played,
+        low_sample=reliability.is_low_sample(player_id, app_state.recent_match_counts),
     )
 
 

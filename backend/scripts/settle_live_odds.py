@@ -61,24 +61,6 @@ def load_settled() -> pd.DataFrame:
     return pd.DataFrame(columns=SETTLED_COLUMNS)
 
 
-def determine_winner_side(score_event: dict) -> str | None:
-    """'home' o 'away' si el evento ya terminó y se puede leer un ganador
-    claro de scores[]; None si sigue pendiente o el formato es inesperado."""
-    if not score_event.get("completed"):
-        return None
-    home = score_event.get("home_team")
-    away = score_event.get("away_team")
-    scores = {s.get("name"): s.get("score") for s in (score_event.get("scores") or [])}
-    try:
-        home_score = int(scores[home])
-        away_score = int(scores[away])
-    except (KeyError, TypeError, ValueError):
-        return None
-    if home_score == away_score:
-        return None
-    return "home" if home_score > away_score else "away"
-
-
 def settle_row(row: pd.Series, winner_side: str) -> list[dict]:
     """De una fila de live_odds_log.jsonl ya con resultado conocido, produce
     0, 1 o 2 apuestas (una por lado donde el modelo veía EV+), igual que la
@@ -132,7 +114,7 @@ def main():
             score_event = scores_by_event.get(row["event_id"])
             if score_event is None:
                 continue
-            winner_side = determine_winner_side(score_event)
+            winner_side = odds_client.determine_winner_side(score_event)
             if winner_side is None:
                 continue
             new_bets.extend(settle_row(row, winner_side))

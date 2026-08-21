@@ -18,7 +18,20 @@ load_dotenv()
 
 BASE_URL = "https://api.the-odds-api.com/v4"
 DEFAULT_TIMEOUT = 15.0
-DEFAULT_BOOK_WHITELIST = ("pinnacle", "bet365")
+DEFAULT_BOOK_WHITELIST = ("pinnacle", "betsson")
+
+# Un edge grande contra un book afinado es más probable que sea el modelo
+# con un punto ciego (lesión reciente, retiro, cambio de superficie) que
+# una ventaja real — no hay forma automática de detectarlo, así que solo se
+# usa para marcar "chequeá esto a mano" en scripts/show_value_bets.py y en
+# la respuesta de /matches/today.
+SUSPICIOUS_EDGE_THRESHOLD = 0.07
+# "pinnacle" se usa como referencia de cuota justa (la más ajustada del
+# mercado, ver README) aunque no tenga licencia Coljuegos en Colombia — no
+# es apostable ahí. "bet365" se saca porque nunca aparece en las regiones
+# eu/uk para tenis ATP (0 filas en semanas de captura) y tampoco opera de
+# forma legal en Colombia. "betsson" sí tiene licencia Coljuegos vigente y
+# sí trae cuotas de tenis en la región eu.
 
 
 class OddsApiError(Exception):
@@ -76,6 +89,24 @@ def get_scores(sport_key: str, api_key: str, days_from: int = 3) -> list[dict]:
     """Resultados recientes/en vivo para un torneo. Cuesta más cuota si se
     piden partidos ya completados (ver docs de The Odds API)."""
     return _request(f"/sports/{sport_key}/scores", api_key, daysFrom=days_from)
+
+
+def determine_winner_side(score_event: dict) -> str | None:
+    """'home' o 'away' si el evento ya terminó y se puede leer un ganador
+    claro de scores[]; None si sigue pendiente o el formato es inesperado."""
+    if not score_event.get("completed"):
+        return None
+    home = score_event.get("home_team")
+    away = score_event.get("away_team")
+    scores = {s.get("name"): s.get("score") for s in (score_event.get("scores") or [])}
+    try:
+        home_score = int(scores[home])
+        away_score = int(scores[away])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if home_score == away_score:
+        return None
+    return "home" if home_score > away_score else "away"
 
 
 def extract_book_odds(event: dict, book_whitelist: tuple[str, ...] = DEFAULT_BOOK_WHITELIST) -> list[dict]:

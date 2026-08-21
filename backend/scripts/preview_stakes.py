@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-HERRAMIENTA TEMPORAL DE VALIDACIÓN MANUAL — todavía no es parte del
-pipeline de producción. Dry-run de solo lectura: para cada partido de
-/matches/today, cruza el predicted_winner con la cuota más reciente en
+HERRAMIENTA DE VALIDACIÓN MANUAL, NO el script de producción — ese es
+scripts/log_bet_decision.py, que corre por cron y persiste una fila por
+partido en data/processed/bet_log.jsonl. Este script se queda como
+dry-run de solo lectura a propósito: para cada partido de /matches/today,
+cruza el predicted_winner con la cuota más reciente en
 data/processed/live_odds_log.jsonl y muestra en consola qué stake daría
 compute_stake() (Fase 8, ver app/services/staking.py y
-docs/betting_process.md). No escribe ningún archivo — el logging
-persistente (log_bet_decision.py / settle_bet_log.py) es una entrega
-posterior, a propósito separada de esta, para poder revisar el preview
-a ojo unos días antes de comprometerse a un formato de log.
+docs/betting_process.md), sin escribir ningún archivo — útil para mirar
+el día a ojo antes/aparte de que corra la persistencia real.
 
 Requiere:
   - La API real corriendo (uvicorn api:app --reload, ver API_BASE_URL).

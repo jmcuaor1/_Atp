@@ -22,3 +22,5 @@ class PlayerProfileResponse(BaseModel):
     rolling_avg_ace: float = 0
     rolling_avg_df: float = 0
     rolling_avg_1stWon: float = 0
+    recent_matches_played: int = 0
+    low_sample: bool = False
