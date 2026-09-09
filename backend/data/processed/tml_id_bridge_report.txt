@@ -1,4 +1,4 @@
-Puente de IDs TML -> Sackmann — 463 existentes, 172 nuevos
+Puente de IDs TML -> Sackmann — 476 existentes, 176 nuevos
 
 === Jugadores nuevos (sin historial antes de 2025) ===
 900001: Aaron Gil Garcia
@@ -54,113 +54,116 @@ Puente de IDs TML -> Sackmann — 463 existentes, 172 nuevos
 900047: Diego Dedura
 900047: Gauthier Onclin
 900048: Gerard Campana Lee
-900049: Dylan Dietrich
+900049: Duncan Chan
 900049: Govind Nanda
+900050: Dylan Dietrich
 900050: Edward Winter
-900051: Emilio Camacho
 900051: Henry Bernet
-900052: Enmanuel Munoz
-900053: Ethan Denzel Sibanda
-900054: Eugenio Gonzalez Fitzmaurice
-900056: Fares Zakaria
+900052: Emilio Camacho
+900053: Enmanuel Munoz
+900054: Ethan Denzel Sibanda
+900055: Eugenio Gonzalez Fitzmaurice
 900056: Iliyan Radulov
-900057: Faris Zakaria
+900057: Fares Zakaria
 900057: Ivan Ivanov
-900058: Federico Cina
+900058: Faris Zakaria
 900058: Jack Pinnington Jones
-900059: Felix Gill
+900059: Federico Cina
+900060: Felix Balshaw
 900060: James Watt
+900061: Felix Gill
 900061: Filip Pieczonka
-900062: Freddy Murray
+900064: Freddy Murray
 900066: Gianluca Cadenasso
-900068: Gunawan Trismuwantara
 900069: Guy Den Ouden
+900070: Gunawan Trismuwantara
 900070: Hamish Stewart
 900071: Harry Wendelken
-900073: Hod'abalo Padio
 900073: Luis Carlos Alvarez
-900074: Huzaifa Abdul Rehman
 900074: M Rifki Fitriadi
-900075: Ignacio Parisca Romera
+900075: Hod'abalo Padio
 900075: Marc Van Der Merwe
+900076: Huzaifa Abdul Rehman
 900076: Igor Marcondes
-900077: Ilie Cazac
+900077: Ignacio Parisca Romera
 900078: Martyn Pawelski
+900079: Ilie Cazac
 900079: Maxim Mrva
 900080: Mees Rottgering
 900081: James Trotter
-900083: Joao Lucas Reis Da Silva
 900083: Murphy Cassone
-900084: Johannus Monday
 900084: Nicolas Arseneault
-900085: John Peers
+900085: Joao Lucas Reis Da Silva
 900085: Ofek Shimanov
-900086: Kaan Isik Kosaner
+900086: Johannus Monday
 900086: Oliver Crawford
-900087: Kaipo Marshall
+900087: John Peers
 900087: Oliver Tarvet
-900088: Karan Singh
+900088: Kaan Isik Kosaner
 900088: Olle Wallin
+900089: Kaipo Marshall
 900089: Karim Bennani
+900090: Karan Singh
 900090: Karim Ibrahim
-900091: Karol Filar
 900091: Petar Jovanovic
-900092: Karue Sell
 900092: Peter Buldorini
+900093: Karol Filar
 900093: Kilian Feldbausch
-900094: Kodjo Charles Alipoe-Tchotchodji
+900094: Karue Sell
 900094: Radu David Turcanu
 900095: Lautaro Midon
-900096: Leo Matthysen
+900096: Kodjo Charles Alipoe-Tchotchodji
 900096: Rafael Jodar
 900097: Liam Draxl
-900098: Liova Ajavon
+900098: Leo Matthysen
 900098: Rei Sakamoto
 900099: Louis Van Herck
-900099: Ricardo Rodriguez - Pace
-900100: Lucky Candra Kurniawan
+900100: Liova Ajavon
 900100: Roberto Cid Subervi
+900102: Lucky Candra Kurniawan
 900102: Luis Guto Miguel
 900103: Luka Pavlovic
 900104: Stefan Dostanic
 900105: Stephen Slocombe
-900106: Markus Molder
-900107: Martin Antonio Vergara del Puerto
 900107: Taha Baadi
+900108: Markus Molder
 900108: Martin Krumich
+900109: Martin Antonio Vergara del Puerto
 900109: Tomasz Berkieta
 900110: Matias Soto
-900111: Matyas Fuele
 900111: Tristan Boyer
 900112: Max Basing
-900113: Max Dahlin
-900114: Max Schoenhaus
+900113: Matyas Fuele
 900114: Valentin Royer
-900115: William Rejchtman Vinciguerra
+900115: Max Dahlin
+900115: Max Schoenhaus
 900117: Mert Alkaya
-900118: Mert Naci Turker
 900119: Michael Zheng
+900120: Mert Naci Turker
 900120: Miguel Damas
 900121: Mika Brunold
 900122: Moise Kouame
-900123: Mukund Sasikumar
+900125: Mukund Sasikumar
 900126: Niels McDonald
 900128: Ognjen Milic
-900132: Patrick Agbo-Panzo
 900133: Patrick Zahraj
-900136: Pijus Vaitiekunas
+900134: Patrick Agbo-Panzo
+900138: Pijus Vaitiekunas
 900138: Rafael De Alba
-900140: Raphael Calzi
-900141: Raul Garcia
+900139: Quinn Vandecasteele
 900142: Reda Bennani
-900146: Ronan Tashinga Mtisi
+900143: Raphael Calzi
+900144: Raul Garcia
+900145: Ricardo Rodriguez - Pace
 900147: Sanhui Shin
-900148: Saud Alhogbani
+900149: Ronan Tashinga Mtisi
 900149: Siu Chi Nicholas Cheng
+900151: Saud Alhogbani
 900151: Stefan Palosi
-900153: Sylvestre Monnou
+900152: Sebastian Gorzny
 900155: Thanapet Chanta
 900156: Thijs Boogaard
+900157: Sylvestre Monnou
 900157: Thomas Faurel
 900158: Tiago Pereira
 900159: Tiago Torres
@@ -168,10 +171,11 @@ Puente de IDs TML -> Sackmann — 463 existentes, 172 nuevos
 900161: Tom Gentzsch
 900163: Trevor Svajda
 900165: Tsung-Hao Huang
-900166: Tsz Fu Wong
-900169: Xavier Lawrence
+900169: William Rejchtman Vinciguerra
+900170: Tsz Fu Wong
 900170: Yunchaokete Bu
 900171: Ziga Sesko
 900172: otic van de Zandschulp
+900173: Xavier Lawrence
 
 === Casos ambiguos (revisar a mano si el jugador importa) ===

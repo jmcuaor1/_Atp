@@ -30,7 +30,7 @@ if str(SRC_DIR) not in sys.path:
 from features import prepare_features_for_training, symmetrize_dataset  # noqa: E402
 
 MIN_YEAR = 2010
-TEST_YEARS = [2020, 2021, 2022, 2023, 2024]
+TEST_YEARS = [2020, 2021, 2022, 2023, 2024, 2025, 2026]
 
 LEAKAGE_COLS = [
     'p1_ace', 'p1_df', 'p1_svpt', 'p1_1stIn', 'p1_1stWon', 'p1_2ndWon',
